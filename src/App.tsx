@@ -17,7 +17,24 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const AppContent = () => {
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/rotina" element={<Rotina />} />
+      <Route path="/okrs" element={<OKRs />} />
+      <Route path="/incidentes" element={<Incidentes />} />
+      <Route path="/testes" element={<Testes />} />
+      <Route path="/pontos" element={<Pontos />} />
+      <Route path="/config" element={<Config />} />
+      <Route path="/canvas" element={<Dashboard />} />
+      <Route path="/registros" element={<Dashboard />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
+function MainApp() {
   const isOnboarded = useStore((state) => state.config.isOnboarded);
 
   if (!isOnboarded) {
@@ -26,21 +43,10 @@ const AppContent = () => {
 
   return (
     <AppLayout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/rotina" element={<Rotina />} />
-        <Route path="/okrs" element={<OKRs />} />
-        <Route path="/incidentes" element={<Incidentes />} />
-        <Route path="/testes" element={<Testes />} />
-        <Route path="/pontos" element={<Pontos />} />
-        <Route path="/config" element={<Config />} />
-        <Route path="/canvas" element={<Dashboard />} />
-        <Route path="/registros" element={<Dashboard />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AppRoutes />
     </AppLayout>
   );
-};
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -48,7 +54,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppContent />
+        <MainApp />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
