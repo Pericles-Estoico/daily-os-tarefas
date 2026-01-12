@@ -3,10 +3,44 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import { useStore } from "@/lib/store";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
+import Dashboard from "./pages/Dashboard";
+import Rotina from "./pages/Rotina";
+import OKRs from "./pages/OKRs";
+import Incidentes from "./pages/Incidentes";
+import Testes from "./pages/Testes";
+import Pontos from "./pages/Pontos";
+import Config from "./pages/Config";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+const AppContent = () => {
+  const isOnboarded = useStore((state) => state.config.isOnboarded);
+
+  if (!isOnboarded) {
+    return <OnboardingFlow />;
+  }
+
+  return (
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/rotina" element={<Rotina />} />
+        <Route path="/okrs" element={<OKRs />} />
+        <Route path="/incidentes" element={<Incidentes />} />
+        <Route path="/testes" element={<Testes />} />
+        <Route path="/pontos" element={<Pontos />} />
+        <Route path="/config" element={<Config />} />
+        <Route path="/canvas" element={<Dashboard />} />
+        <Route path="/registros" element={<Dashboard />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppLayout>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -14,11 +48,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AppContent />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
