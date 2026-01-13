@@ -79,6 +79,7 @@ const initialState: AppState = {
       live: true,
       affiliates: false,
     },
+    currentUserId: null,
     scoreRules: {
       criticalTaskDone: 3,
       normalTaskDone: 1,

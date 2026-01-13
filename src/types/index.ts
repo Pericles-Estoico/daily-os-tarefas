@@ -50,6 +50,7 @@ export interface Marketplace {
 export interface RoutineTask {
   id: string;
   marketplaceId: string | null; // null = tarefa global
+  ownerId: string; // Dono da tarefa (obrigatório)
   cadence: MarketplaceCadence;
   time: string;
   type: TaskType;
@@ -187,6 +188,7 @@ export interface WorkspaceConfig {
   moeda: string;
   isOnboarded: boolean;
   modulesEnabled: ModulesConfig;
+  currentUserId: string | null; // Usuário atual (simulação)
   scoreRules: {
     criticalTaskDone: number;
     normalTaskDone: number;

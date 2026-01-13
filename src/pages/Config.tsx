@@ -4,41 +4,167 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Download, Upload, RefreshCw, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Download, Upload, RefreshCw, Trash2, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Config() {
   const config = useStore((state) => state.config);
+  const owners = useStore((state) => state.owners);
   const updateConfig = useStore((state) => state.updateConfig);
   const resetData = useStore((state) => state.resetData);
   const loadSeedData = useStore((state) => state.loadSeedData);
   const exportData = useStore((state) => state.exportData);
   const importData = useStore((state) => state.importData);
 
-  const handleExport = () => { const data = exportData(); const blob = new Blob([data], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `os-marketplaces-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); toast.success('Backup exportado!'); };
-  const handleImport = () => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) { const reader = new FileReader(); reader.onload = (ev) => { if (importData(ev.target?.result as string)) toast.success('Dados importados!'); else toast.error('Erro ao importar'); }; reader.readAsText(file); } }; input.click(); };
+  const handleExport = () => {
+    const data = exportData();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `os-marketplaces-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    toast.success('Backup exportado!');
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (importData(ev.target?.result as string)) {
+            toast.success('Dados importados!');
+          } else {
+            toast.error('Erro ao importar');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
+
+  const handleCurrentUserChange = (value: string) => {
+    updateConfig({ currentUserId: value === 'none' ? null : value });
+    toast.success('Usuário atual atualizado!');
+  };
+
+  const currentUser = config.currentUserId ? owners.find(o => o.id === config.currentUserId) : null;
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Configurações</h1><p className="text-muted-foreground">Gerencie seu workspace</p></div>
-      <Card><CardHeader><CardTitle>Workspace</CardTitle></CardHeader><CardContent className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2"><Label>Nome</Label><Input value={config.nome} onChange={(e) => updateConfig({ nome: e.target.value })} /></div>
-          <div className="space-y-2"><Label>Meta Diária (R$)</Label><Input type="number" value={config.metaDiaria} onChange={(e) => updateConfig({ metaDiaria: Number(e.target.value) })} /></div>
-        </div>
-      </CardContent></Card>
-      <Card><CardHeader><CardTitle>Módulos</CardTitle><CardDescription>Ative ou desative funcionalidades</CardDescription></CardHeader><CardContent className="space-y-4">
-        {(['crm', 'paidAds', 'live', 'affiliates'] as const).map((mod) => (
-          <div key={mod} className="flex items-center justify-between"><span className="capitalize">{mod}</span><Switch checked={config.modulesEnabled[mod]} onCheckedChange={(c) => updateConfig({ modulesEnabled: { ...config.modulesEnabled, [mod]: c } })} /></div>
-        ))}
-      </CardContent></Card>
-      <Card><CardHeader><CardTitle>Dados</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-3">
-        <Button variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-2" />Exportar JSON</Button>
-        <Button variant="outline" onClick={handleImport}><Upload className="h-4 w-4 mr-2" />Importar JSON</Button>
-        <Button variant="outline" onClick={() => { loadSeedData(); toast.success('Demo carregado!'); }}><RefreshCw className="h-4 w-4 mr-2" />Carregar Demo</Button>
-        <Button variant="destructive" onClick={() => { if (confirm('Resetar tudo?')) { resetData(); toast.success('Dados resetados'); } }}><Trash2 className="h-4 w-4 mr-2" />Resetar</Button>
-      </CardContent></Card>
+      <div>
+        <h1 className="text-2xl font-bold">Configurações</h1>
+        <p className="text-muted-foreground">Gerencie seu workspace</p>
+      </div>
+
+      {/* Usuário Atual (Simulação) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Usuário Atual (Simulação)
+          </CardTitle>
+          <CardDescription>
+            Selecione quem está usando o sistema para habilitar o filtro "Só minhas" na Rotina.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Select value={config.currentUserId || 'none'} onValueChange={handleCurrentUserChange}>
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Selecione o usuário" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhum selecionado</SelectItem>
+                {owners.map((owner) => (
+                  <SelectItem key={owner.id} value={owner.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 rounded-full" style={{ backgroundColor: owner.avatarColor }} />
+                      <span>{owner.nome}</span>
+                      <span className="text-muted-foreground text-xs">({owner.cargo})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {currentUser && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="h-6 w-6 rounded-full" style={{ backgroundColor: currentUser.avatarColor }} />
+                Logado como: <strong>{currentUser.nome}</strong>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Workspace */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Workspace</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input value={config.nome} onChange={(e) => updateConfig({ nome: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Meta Diária (R$)</Label>
+              <Input type="number" value={config.metaDiaria} onChange={(e) => updateConfig({ metaDiaria: Number(e.target.value) })} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Módulos */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Módulos</CardTitle>
+          <CardDescription>Ative ou desative funcionalidades</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {(['crm', 'paidAds', 'live', 'affiliates'] as const).map((mod) => (
+            <div key={mod} className="flex items-center justify-between">
+              <span className="capitalize">{mod === 'paidAds' ? 'Paid Ads' : mod}</span>
+              <Switch
+                checked={config.modulesEnabled[mod]}
+                onCheckedChange={(c) => updateConfig({ modulesEnabled: { ...config.modulesEnabled, [mod]: c } })}
+              />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Dados */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Dados</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar JSON
+          </Button>
+          <Button variant="outline" onClick={handleImport}>
+            <Upload className="h-4 w-4 mr-2" />
+            Importar JSON
+          </Button>
+          <Button variant="outline" onClick={() => { loadSeedData(); toast.success('Demo carregado!'); }}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Carregar Demo
+          </Button>
+          <Button variant="destructive" onClick={() => { if (confirm('Resetar tudo?')) { resetData(); toast.success('Dados resetados'); } }}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Resetar
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
