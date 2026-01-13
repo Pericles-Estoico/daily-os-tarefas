@@ -8,18 +8,18 @@ interface SemaforoBadgeProps {
   className?: string;
 }
 
-const semaforoConfig = {
-  verde: {
+const semaforoConfig: Record<SemaforoStatus, { label: string; bgClass: string; textClass: string }> = {
+  GREEN: {
     label: 'Verde',
     bgClass: 'bg-[hsl(var(--success))]',
     textClass: 'text-[hsl(var(--success-foreground))]',
   },
-  amarelo: {
+  YELLOW: {
     label: 'Amarelo',
     bgClass: 'bg-[hsl(var(--warning))]',
     textClass: 'text-[hsl(var(--warning-foreground))]',
   },
-  vermelho: {
+  RED: {
     label: 'Vermelho',
     bgClass: 'bg-[hsl(var(--danger))]',
     textClass: 'text-[hsl(var(--danger-foreground))]',
@@ -38,7 +38,7 @@ export function SemaforoBadge({
   showLabel = false,
   className,
 }: SemaforoBadgeProps) {
-  const config = semaforoConfig[status];
+  const config = semaforoConfig[status] || semaforoConfig.GREEN;
 
   if (showLabel) {
     return (
