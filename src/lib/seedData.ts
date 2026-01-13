@@ -7,6 +7,7 @@ import type {
   Incident,
   Experiment,
   ScoreWeek,
+  TaskStep,
 } from '@/types';
 
 const today = new Date().toISOString().split('T')[0];
@@ -15,6 +16,29 @@ const weekStart = new Date();
 weekStart.setDate(weekStart.getDate() - weekStart.getDay());
 const weekEnd = new Date(weekStart);
 weekEnd.setDate(weekEnd.getDate() + 6);
+
+// Helper para criar campos operacionais default
+const createOperationalDefaults = (overrides?: {
+  description?: string;
+  steps?: TaskStep[];
+  inputs?: string[];
+  outputs?: string[];
+  commonMistakes?: string[];
+  timeboxMinutes?: number;
+  toolsLinks?: { label: string; url: string }[];
+  evidenceExamples?: string[];
+  escalationRule?: string;
+}) => ({
+  description: overrides?.description || '',
+  steps: overrides?.steps || [],
+  inputs: overrides?.inputs || [],
+  outputs: overrides?.outputs || [],
+  commonMistakes: overrides?.commonMistakes || [],
+  timeboxMinutes: overrides?.timeboxMinutes || 15,
+  toolsLinks: overrides?.toolsLinks || [],
+  evidenceExamples: overrides?.evidenceExamples || [],
+  escalationRule: overrides?.escalationRule || 'Se não conseguir completar, escalonar para o gestor imediato.',
+});
 
 export const generateSeedData = () => {
   // ============= OWNERS =============
@@ -121,24 +145,39 @@ export const generateSeedData = () => {
   ];
 
   // ============= ROUTINE TASKS (P1 SCALE) =============
-  // Helper para determinar ownerId: marketplace tasks herdam do marketplace, globais default CEO
-  const getTaskOwnerId = (marketplaceId: string | null): string => {
-    if (!marketplaceId) return 'owner-1'; // CEO para tarefas globais
-    const mp = marketplaces.find(m => m.id === marketplaceId);
-    return mp?.ownerId || 'owner-1';
-  };
-
   const routineTasks: RoutineTask[] = [
     // Tarefas Globais (matinais) - CEO
     {
       id: 'task-global-1',
       marketplaceId: null,
-      ownerId: 'owner-1', // CEO
+      ownerId: 'owner-1',
       cadence: 'DAILY',
       time: '08:00',
       type: 'HIGIENE',
       title: 'Check Painel Geral (5 números ontem)',
       dod: 'Verificar GMV, pedidos, ticket, margem e SLA de todos canais',
+      ...createOperationalDefaults({
+        description: `## Objetivo
+Garantir visibilidade diária dos principais indicadores de todos os canais.
+
+## Por que é importante
+O check matinal permite identificar problemas antes que se tornem críticos e direcionar o foco do dia.`,
+        steps: [
+          { id: 's1', text: 'Acessar o painel consolidado', completed: false },
+          { id: 's2', text: 'Verificar GMV total vs meta', completed: false },
+          { id: 's3', text: 'Verificar pedidos por canal', completed: false },
+          { id: 's4', text: 'Verificar ticket médio', completed: false },
+          { id: 's5', text: 'Verificar margem bruta', completed: false },
+          { id: 's6', text: 'Verificar SLA de expedição', completed: false },
+        ],
+        inputs: ['Acesso ao painel de BI', 'Dados do dia anterior consolidados'],
+        outputs: ['5 números registrados', 'Alertas identificados'],
+        commonMistakes: ['Não verificar todos os canais', 'Ignorar variações pequenas que podem ser tendência'],
+        timeboxMinutes: 15,
+        toolsLinks: [{ label: 'Painel BI', url: 'https://bi.exemplo.com' }],
+        evidenceExamples: ['Print do painel com os 5 números destacados', 'Anotação com os valores no sistema'],
+        escalationRule: 'Se GMV < 70% da meta, escalonar imediatamente para reunião de crise.',
+      }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -153,12 +192,21 @@ export const generateSeedData = () => {
     {
       id: 'task-global-2',
       marketplaceId: null,
-      ownerId: 'owner-1', // CEO
+      ownerId: 'owner-1',
       cadence: 'DAILY',
       time: '08:30',
       type: 'HIGIENE',
       title: 'Revisar Incidentes Abertos',
       dod: 'Checar status de todas as pedras e atualizar se necessário',
+      ...createOperationalDefaults({
+        description: 'Revisar todos os incidentes abertos para garantir que estão sendo tratados.',
+        steps: [
+          { id: 's1', text: 'Acessar página de Incidentes', completed: false },
+          { id: 's2', text: 'Filtrar por OPEN e IN_PROGRESS', completed: false },
+          { id: 's3', text: 'Verificar progresso de cada um', completed: false },
+        ],
+        timeboxMinutes: 10,
+      }),
       evidenceRequired: false,
       critical: false,
       points: 1,
@@ -174,12 +222,32 @@ export const generateSeedData = () => {
     {
       id: 'task-shein-1',
       marketplaceId: 'mp-shein',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'DAILY',
       time: '09:00',
       type: 'HIGIENE',
       title: '[SHEIN] Responder mensagens pendentes',
       dod: 'Todas mensagens respondidas em <2h',
+      ...createOperationalDefaults({
+        description: `## Objetivo
+Manter taxa de resposta acima de 95% e tempo médio abaixo de 2 horas.
+
+## Contexto
+A Shein penaliza lojas com tempo de resposta alto, afetando exposição e vendas.`,
+        steps: [
+          { id: 's1', text: 'Acessar Seller Center Shein', completed: false },
+          { id: 's2', text: 'Ir em "Mensagens"', completed: false },
+          { id: 's3', text: 'Responder todas mensagens pendentes', completed: false },
+          { id: 's4', text: 'Verificar se há disputas abertas', completed: false },
+        ],
+        inputs: ['Acesso Seller Center Shein'],
+        outputs: ['Mensagens zeradas', 'Print da caixa vazia'],
+        commonMistakes: ['Responder de forma genérica', 'Não verificar disputas'],
+        timeboxMinutes: 20,
+        toolsLinks: [{ label: 'Seller Center Shein', url: 'https://seller.shein.com' }],
+        evidenceExamples: ['Print mostrando 0 mensagens pendentes'],
+        escalationRule: 'Se houver disputa complexa, escalonar para Péricles.',
+      }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -194,12 +262,16 @@ export const generateSeedData = () => {
     {
       id: 'task-shein-2',
       marketplaceId: 'mp-shein',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'DAILY',
       time: '10:00',
       type: 'PROTECAO',
       title: '[SHEIN] Checar reputação e reclamações',
       dod: 'Score acima de 4.7, sem reclamações pendentes',
+      ...createOperationalDefaults({
+        description: 'Monitorar score e resolver reclamações antes que afetem reputação.',
+        timeboxMinutes: 15,
+      }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -214,12 +286,13 @@ export const generateSeedData = () => {
     {
       id: 'task-shein-3',
       marketplaceId: 'mp-shein',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'DAILY',
       time: '11:00',
       type: 'CRESCIMENTO',
       title: '[SHEIN] Subir 5 novos produtos ou atualizar preços',
       dod: '5 SKUs atualizados com preço competitivo',
+      ...createOperationalDefaults({ timeboxMinutes: 30 }),
       evidenceRequired: true,
       critical: false,
       points: 1,
@@ -234,12 +307,23 @@ export const generateSeedData = () => {
     {
       id: 'task-shein-4',
       marketplaceId: 'mp-shein',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'DAILY',
       time: '14:00',
       type: 'HIGIENE',
       title: '[SHEIN] Expedição até cutoff (14h)',
       dod: 'Todos pedidos do dia expedidos',
+      ...createOperationalDefaults({
+        description: 'Expedir todos os pedidos antes do cutoff para manter SLA.',
+        steps: [
+          { id: 's1', text: 'Imprimir etiquetas pendentes', completed: false },
+          { id: 's2', text: 'Separar produtos', completed: false },
+          { id: 's3', text: 'Embalar e etiquetar', completed: false },
+          { id: 's4', text: 'Postar/agendar coleta', completed: false },
+        ],
+        timeboxMinutes: 60,
+        escalationRule: 'Se não conseguir expedir todos, avisar Péricles antes do cutoff.',
+      }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -255,12 +339,13 @@ export const generateSeedData = () => {
     {
       id: 'task-shopee150-1',
       marketplaceId: 'mp-shopee-150',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'DAILY',
       time: '09:00',
       type: 'HIGIENE',
       title: '[SHOPEE 1:50] Responder chat pendente',
       dod: 'Taxa de resposta >95%, tempo <30min',
+      ...createOperationalDefaults({ timeboxMinutes: 20 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -275,12 +360,13 @@ export const generateSeedData = () => {
     {
       id: 'task-shopee150-2',
       marketplaceId: 'mp-shopee-150',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'DAILY',
       time: '10:30',
       type: 'CRESCIMENTO',
       title: '[SHOPEE 1:50] Configurar promoção do dia',
       dod: 'Pelo menos 1 promoção ativa com desconto atrativo',
+      ...createOperationalDefaults({ timeboxMinutes: 15 }),
       evidenceRequired: true,
       critical: false,
       points: 1,
@@ -295,12 +381,13 @@ export const generateSeedData = () => {
     {
       id: 'task-shopee150-3',
       marketplaceId: 'mp-shopee-150',
-      ownerId: 'owner-3', // Walistter (CMO - Ads)
+      ownerId: 'owner-3',
       cadence: 'DAILY',
       time: '12:00',
       type: 'CRESCIMENTO',
       title: '[SHOPEE 1:50] Verificar Ads e ajustar lances',
       dod: 'ROAS >3x, pausar anúncios com CPA alto',
+      ...createOperationalDefaults({ timeboxMinutes: 20 }),
       evidenceRequired: true,
       critical: false,
       points: 1,
@@ -315,12 +402,13 @@ export const generateSeedData = () => {
     {
       id: 'task-shopee150-4',
       marketplaceId: 'mp-shopee-150',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'DAILY',
       time: '15:00',
       type: 'HIGIENE',
       title: '[SHOPEE 1:50] Expedição até cutoff (15h)',
       dod: 'Todos pedidos expedidos no prazo',
+      ...createOperationalDefaults({ timeboxMinutes: 60 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -336,12 +424,13 @@ export const generateSeedData = () => {
     {
       id: 'task-ml-recover-1',
       marketplaceId: 'mp-ml',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'RECOVER',
       time: '09:00',
       type: 'PROTECAO',
       title: '[ML RECOVER] Responder TODAS reclamações',
       dod: 'Zero reclamações pendentes',
+      ...createOperationalDefaults({ timeboxMinutes: 30 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -356,12 +445,13 @@ export const generateSeedData = () => {
     {
       id: 'task-ml-recover-2',
       marketplaceId: 'mp-ml',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'RECOVER',
       time: '10:00',
       type: 'PROTECAO',
       title: '[ML RECOVER] Auditar SLA expedição',
       dod: 'SLA >98%, zero atrasos',
+      ...createOperationalDefaults({ timeboxMinutes: 20 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -376,12 +466,13 @@ export const generateSeedData = () => {
     {
       id: 'task-ml-recover-3',
       marketplaceId: 'mp-ml',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'RECOVER',
       time: '11:00',
       type: 'PROTECAO',
       title: '[ML RECOVER] Resolver devoluções pendentes',
       dod: 'Todas devoluções processadas',
+      ...createOperationalDefaults({ timeboxMinutes: 30 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -396,12 +487,13 @@ export const generateSeedData = () => {
     {
       id: 'task-ml-recover-4',
       marketplaceId: 'mp-ml',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'RECOVER',
       time: '14:00',
       type: 'PROTECAO',
       title: '[ML RECOVER] Expedição prioritária',
       dod: 'Expedir antes do cutoff com rastreio atualizado',
+      ...createOperationalDefaults({ timeboxMinutes: 60 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -417,12 +509,13 @@ export const generateSeedData = () => {
     {
       id: 'task-amazon-setup-1',
       marketplaceId: 'mp-amazon',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'SETUP_SPRINT',
       time: '09:00',
       type: 'SETUP',
       title: '[AMAZON SETUP] Cadastrar 10 SKUs hoje',
       dod: '10 produtos ativos com fotos e descrição',
+      ...createOperationalDefaults({ timeboxMinutes: 60 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -437,12 +530,13 @@ export const generateSeedData = () => {
     {
       id: 'task-amazon-setup-2',
       marketplaceId: 'mp-amazon',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'SETUP_SPRINT',
       time: '11:00',
       type: 'SETUP',
       title: '[AMAZON SETUP] Testar checkout (compra simulada)',
       dod: 'Checkout funcionando, frete calculado corretamente',
+      ...createOperationalDefaults({ timeboxMinutes: 20 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -457,12 +551,13 @@ export const generateSeedData = () => {
     {
       id: 'task-amazon-setup-3',
       marketplaceId: 'mp-amazon',
-      ownerId: 'owner-4', // Elisangela
+      ownerId: 'owner-4',
       cadence: 'SETUP_SPRINT',
       time: '14:00',
       type: 'SETUP',
       title: '[AMAZON SETUP] Revisar precificação vs concorrência',
       dod: 'Preços competitivos em relação aos 3 principais concorrentes',
+      ...createOperationalDefaults({ timeboxMinutes: 30 }),
       evidenceRequired: true,
       critical: false,
       points: 1,
@@ -478,12 +573,16 @@ export const generateSeedData = () => {
     {
       id: 'task-global-close',
       marketplaceId: null,
-      ownerId: 'owner-1', // CEO
+      ownerId: 'owner-1',
       cadence: 'DAILY',
       time: '18:00',
       type: 'HIGIENE',
       title: 'Fechamento do Dia (Painel 5 números)',
       dod: 'Preencher GMV, pedidos, ticket, margem e observações do dia',
+      ...createOperationalDefaults({
+        description: 'Consolidar números do dia e registrar observações importantes.',
+        timeboxMinutes: 20,
+      }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -499,12 +598,13 @@ export const generateSeedData = () => {
     {
       id: 'task-cfo-1',
       marketplaceId: null,
-      ownerId: 'owner-2', // Stella CFO
+      ownerId: 'owner-2',
       cadence: 'DAILY',
       time: '10:00',
       type: 'HIGIENE',
       title: 'Conferir fluxo de caixa do dia anterior',
       dod: 'Conciliação bancária ok, sem divergências',
+      ...createOperationalDefaults({ timeboxMinutes: 30 }),
       evidenceRequired: true,
       critical: false,
       points: 1,
@@ -520,12 +620,13 @@ export const generateSeedData = () => {
     {
       id: 'task-cmo-1',
       marketplaceId: null,
-      ownerId: 'owner-3', // Walistter CMO
+      ownerId: 'owner-3',
       cadence: 'DAILY',
       time: '09:30',
       type: 'CRESCIMENTO',
       title: 'Revisar performance de campanhas (todos canais)',
       dod: 'Dashboard atualizado, ajustes feitos se necessário',
+      ...createOperationalDefaults({ timeboxMinutes: 30 }),
       evidenceRequired: true,
       critical: false,
       points: 1,
@@ -541,7 +642,6 @@ export const generateSeedData = () => {
 
   // ============= KPI ENTRIES =============
   const kpiEntries: KPIEntry[] = [
-    // Shein - ontem
     {
       id: 'kpi-shein-1',
       date: yesterday,
@@ -561,7 +661,6 @@ export const generateSeedData = () => {
       notes: 'Dia forte. Promoção relâmpago funcionou.',
       evidenceLinks: [],
     },
-    // Shopee 1:50 - ontem
     {
       id: 'kpi-shopee150-1',
       date: yesterday,
@@ -581,7 +680,6 @@ export const generateSeedData = () => {
       notes: 'Live performou bem. Considerar aumentar frequência.',
       evidenceLinks: [],
     },
-    // Shopee Biju - ontem
     {
       id: 'kpi-shopeebiju-1',
       date: yesterday,
@@ -601,7 +699,6 @@ export const generateSeedData = () => {
       notes: 'GMV abaixo da média. Revisar mix.',
       evidenceLinks: [],
     },
-    // ML - ontem
     {
       id: 'kpi-ml-1',
       date: yesterday,
@@ -621,7 +718,6 @@ export const generateSeedData = () => {
       notes: 'Reputação crítica. SLA precisa melhorar urgente.',
       evidenceLinks: [],
     },
-    // Magalu - ontem
     {
       id: 'kpi-magalu-1',
       date: yesterday,
@@ -777,6 +873,19 @@ export const generateSeedData = () => {
       type: 'HIGIENE',
       title: 'Check Painel Geral (5 números ontem)',
       dod: 'Verificar GMV, pedidos, ticket, margem e SLA de todos canais',
+      ...createOperationalDefaults({
+        description: `## Objetivo
+Garantir visibilidade diária dos principais indicadores de todos os canais.`,
+        steps: [
+          { id: 's1', text: 'Acessar o painel consolidado', completed: false },
+          { id: 's2', text: 'Verificar GMV total vs meta', completed: false },
+          { id: 's3', text: 'Verificar pedidos por canal', completed: false },
+          { id: 's4', text: 'Verificar ticket médio', completed: false },
+          { id: 's5', text: 'Verificar margem bruta', completed: false },
+          { id: 's6', text: 'Verificar SLA de expedição', completed: false },
+        ],
+        timeboxMinutes: 15,
+      }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -792,6 +901,7 @@ export const generateSeedData = () => {
       type: 'HIGIENE',
       title: '[SHEIN] Responder mensagens pendentes',
       dod: 'Todas mensagens respondidas em <2h',
+      ...createOperationalDefaults({ timeboxMinutes: 20 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -807,6 +917,7 @@ export const generateSeedData = () => {
       type: 'HIGIENE',
       title: '[SHOPEE 1:50] Responder chat pendente',
       dod: 'Taxa de resposta >95%, tempo <30min',
+      ...createOperationalDefaults({ timeboxMinutes: 20 }),
       evidenceRequired: true,
       critical: true,
       points: 3,
@@ -822,6 +933,7 @@ export const generateSeedData = () => {
       type: 'HIGIENE',
       title: 'Fechamento do Dia (Painel 5 números)',
       dod: 'Preencher GMV, pedidos, ticket, margem e observações do dia',
+      ...createOperationalDefaults({ timeboxMinutes: 20 }),
       evidenceRequired: true,
       critical: true,
       points: 3,

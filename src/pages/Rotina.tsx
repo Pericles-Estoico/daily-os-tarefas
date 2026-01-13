@@ -5,15 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Clock, Search, CheckCircle2, Plus, User, Calendar, AlertTriangle } from 'lucide-react';
-import { format, endOfMonth, isLastDayOfMonth, addMonths } from 'date-fns';
+import { format, isLastDayOfMonth, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { RoutineTask } from '@/types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { TaskDetailModal } from '@/components/TaskDetailModal';
 
 const STORAGE_KEY = 'rotina-owner-filter';
 
@@ -36,7 +36,6 @@ export default function Rotina() {
 
   const [search, setSearch] = useState('');
   const [selectedTask, setSelectedTask] = useState<RoutineTask | null>(null);
-  const [evidencia, setEvidencia] = useState('');
   const [showMonthModal, setShowMonthModal] = useState(false);
   const [monthToGenerate, setMonthToGenerate] = useState<string>('');
   
@@ -138,18 +137,16 @@ export default function Rotina() {
     return nome.substring(0, 2).toUpperCase();
   };
 
-  const handleComplete = () => {
+  const handleComplete = (evidenceLinks: string[]) => {
     if (selectedTask) {
-      if (selectedTask.evidenceRequired && !evidencia.trim()) return;
-      completeRoutineTask(selectedTask.id, evidencia ? [evidencia] : [], config.currentUserId || owners[0]?.id || '');
+      completeRoutineTask(selectedTask.id, evidenceLinks, config.currentUserId || owners[0]?.id || '');
       setSelectedTask(null);
-      setEvidencia('');
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = (reason: string) => {
     if (selectedTask) {
-      skipRoutineTask(selectedTask.id, 'Pulada manualmente');
+      skipRoutineTask(selectedTask.id, reason);
       setSelectedTask(null);
     }
   };
@@ -324,54 +321,14 @@ export default function Rotina() {
         )}
       </div>
 
-      {/* Task Detail Dialog */}
-      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-        <DialogContent>
-          {selectedTask && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <span className="font-mono text-muted-foreground">{selectedTask.time}</span>
-                  {selectedTask.title}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Label>Dono:</Label>
-                  {(() => {
-                    const owner = getOwner(selectedTask.ownerId);
-                    return owner ? (
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback style={{ backgroundColor: owner.avatarColor, color: 'white', fontSize: '10px' }}>
-                            {getOwnerInitials(owner.nome)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{owner.nome} ({owner.cargo})</span>
-                      </div>
-                    ) : <span className="text-sm text-muted-foreground">Não definido</span>;
-                  })()}
-                </div>
-                <div><Label>DoD (Critério de Pronto)</Label><p className="text-sm text-muted-foreground mt-1">{selectedTask.dod}</p></div>
-                {selectedTask.status !== 'DONE' && (
-                  <div>
-                    <Label>Evidência {selectedTask.evidenceRequired && <span className="text-destructive">*</span>}</Label>
-                    <Textarea placeholder="Cole o link da evidência..." value={evidencia} onChange={(e) => setEvidencia(e.target.value)} className="mt-1" />
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                {selectedTask.status !== 'DONE' && (
-                  <>
-                    <Button variant="outline" onClick={handleSkip}>Pular</Button>
-                    <Button onClick={handleComplete} disabled={selectedTask.evidenceRequired && !evidencia.trim()}>Concluir</Button>
-                  </>
-                )}
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        task={selectedTask}
+        open={!!selectedTask}
+        onOpenChange={(open) => !open && setSelectedTask(null)}
+        onComplete={handleComplete}
+        onSkip={handleSkip}
+      />
 
       {/* Monthly Generation Modal */}
       <Dialog open={showMonthModal} onOpenChange={setShowMonthModal}>
