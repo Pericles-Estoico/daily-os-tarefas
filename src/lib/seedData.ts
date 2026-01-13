@@ -120,11 +120,19 @@ export const generateSeedData = () => {
   ];
 
   // ============= ROUTINE TASKS (P1 SCALE) =============
+  // Helper para determinar ownerId: marketplace tasks herdam do marketplace, globais default CEO
+  const getTaskOwnerId = (marketplaceId: string | null): string => {
+    if (!marketplaceId) return 'owner-1'; // CEO para tarefas globais
+    const mp = marketplaces.find(m => m.id === marketplaceId);
+    return mp?.ownerId || 'owner-1';
+  };
+
   const routineTasks: RoutineTask[] = [
-    // Tarefas Globais (matinais)
+    // Tarefas Globais (matinais) - CEO
     {
       id: 'task-global-1',
       marketplaceId: null,
+      ownerId: 'owner-1', // CEO
       cadence: 'DAILY',
       time: '08:00',
       type: 'HIGIENE',
@@ -144,6 +152,7 @@ export const generateSeedData = () => {
     {
       id: 'task-global-2',
       marketplaceId: null,
+      ownerId: 'owner-1', // CEO
       cadence: 'DAILY',
       time: '08:30',
       type: 'HIGIENE',
@@ -160,10 +169,11 @@ export const generateSeedData = () => {
       date: today,
       createdAt: new Date().toISOString(),
     },
-    // Shein (P1)
+    // Shein (P1) - Elisangela
     {
       id: 'task-shein-1',
       marketplaceId: 'mp-shein',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'DAILY',
       time: '09:00',
       type: 'HIGIENE',
@@ -183,6 +193,7 @@ export const generateSeedData = () => {
     {
       id: 'task-shein-2',
       marketplaceId: 'mp-shein',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'DAILY',
       time: '10:00',
       type: 'PROTECAO',
@@ -202,6 +213,7 @@ export const generateSeedData = () => {
     {
       id: 'task-shein-3',
       marketplaceId: 'mp-shein',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'DAILY',
       time: '11:00',
       type: 'CRESCIMENTO',
@@ -221,6 +233,7 @@ export const generateSeedData = () => {
     {
       id: 'task-shein-4',
       marketplaceId: 'mp-shein',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'DAILY',
       time: '14:00',
       type: 'HIGIENE',
@@ -237,10 +250,11 @@ export const generateSeedData = () => {
       date: today,
       createdAt: new Date().toISOString(),
     },
-    // Shopee 1:50 (P1)
+    // Shopee 1:50 (P1) - Elisangela
     {
       id: 'task-shopee150-1',
       marketplaceId: 'mp-shopee-150',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'DAILY',
       time: '09:00',
       type: 'HIGIENE',
@@ -260,6 +274,7 @@ export const generateSeedData = () => {
     {
       id: 'task-shopee150-2',
       marketplaceId: 'mp-shopee-150',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'DAILY',
       time: '10:30',
       type: 'CRESCIMENTO',
@@ -279,6 +294,7 @@ export const generateSeedData = () => {
     {
       id: 'task-shopee150-3',
       marketplaceId: 'mp-shopee-150',
+      ownerId: 'owner-3', // Walistter (CMO - Ads)
       cadence: 'DAILY',
       time: '12:00',
       type: 'CRESCIMENTO',
@@ -298,6 +314,7 @@ export const generateSeedData = () => {
     {
       id: 'task-shopee150-4',
       marketplaceId: 'mp-shopee-150',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'DAILY',
       time: '15:00',
       type: 'HIGIENE',
@@ -314,10 +331,11 @@ export const generateSeedData = () => {
       date: today,
       createdAt: new Date().toISOString(),
     },
-    // ML RECOVER
+    // ML RECOVER - Elisangela
     {
       id: 'task-ml-recover-1',
       marketplaceId: 'mp-ml',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'RECOVER',
       time: '09:00',
       type: 'PROTECAO',
@@ -337,6 +355,7 @@ export const generateSeedData = () => {
     {
       id: 'task-ml-recover-2',
       marketplaceId: 'mp-ml',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'RECOVER',
       time: '10:00',
       type: 'PROTECAO',
@@ -356,6 +375,7 @@ export const generateSeedData = () => {
     {
       id: 'task-ml-recover-3',
       marketplaceId: 'mp-ml',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'RECOVER',
       time: '11:00',
       type: 'PROTECAO',
@@ -375,6 +395,7 @@ export const generateSeedData = () => {
     {
       id: 'task-ml-recover-4',
       marketplaceId: 'mp-ml',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'RECOVER',
       time: '14:00',
       type: 'PROTECAO',
@@ -391,10 +412,11 @@ export const generateSeedData = () => {
       date: today,
       createdAt: new Date().toISOString(),
     },
-    // Amazon SETUP
+    // Amazon SETUP - Elisangela
     {
       id: 'task-amazon-setup-1',
       marketplaceId: 'mp-amazon',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'SETUP_SPRINT',
       time: '09:00',
       type: 'SETUP',
@@ -414,6 +436,7 @@ export const generateSeedData = () => {
     {
       id: 'task-amazon-setup-2',
       marketplaceId: 'mp-amazon',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'SETUP_SPRINT',
       time: '11:00',
       type: 'SETUP',
@@ -433,6 +456,7 @@ export const generateSeedData = () => {
     {
       id: 'task-amazon-setup-3',
       marketplaceId: 'mp-amazon',
+      ownerId: 'owner-4', // Elisangela
       cadence: 'SETUP_SPRINT',
       time: '14:00',
       type: 'SETUP',
@@ -449,10 +473,11 @@ export const generateSeedData = () => {
       date: today,
       createdAt: new Date().toISOString(),
     },
-    // Tarefa de fechamento
+    // Tarefa de fechamento - CEO
     {
       id: 'task-global-close',
       marketplaceId: null,
+      ownerId: 'owner-1', // CEO
       cadence: 'DAILY',
       time: '18:00',
       type: 'HIGIENE',
@@ -461,6 +486,48 @@ export const generateSeedData = () => {
       evidenceRequired: true,
       critical: true,
       points: 3,
+      status: 'TODO',
+      evidenceLinks: [],
+      completedAt: null,
+      completedByOwnerId: null,
+      skipReason: null,
+      date: today,
+      createdAt: new Date().toISOString(),
+    },
+    // Tarefa CFO - Stella
+    {
+      id: 'task-cfo-1',
+      marketplaceId: null,
+      ownerId: 'owner-2', // Stella CFO
+      cadence: 'DAILY',
+      time: '10:00',
+      type: 'HIGIENE',
+      title: 'Conferir fluxo de caixa do dia anterior',
+      dod: 'Conciliação bancária ok, sem divergências',
+      evidenceRequired: true,
+      critical: false,
+      points: 1,
+      status: 'TODO',
+      evidenceLinks: [],
+      completedAt: null,
+      completedByOwnerId: null,
+      skipReason: null,
+      date: today,
+      createdAt: new Date().toISOString(),
+    },
+    // Tarefa CMO - Walistter
+    {
+      id: 'task-cmo-1',
+      marketplaceId: null,
+      ownerId: 'owner-3', // Walistter CMO
+      cadence: 'DAILY',
+      time: '09:30',
+      type: 'CRESCIMENTO',
+      title: 'Revisar performance de campanhas (todos canais)',
+      dod: 'Dashboard atualizado, ajustes feitos se necessário',
+      evidenceRequired: true,
+      critical: false,
+      points: 1,
       status: 'TODO',
       evidenceLinks: [],
       completedAt: null,
