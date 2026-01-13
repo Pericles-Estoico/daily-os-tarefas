@@ -40,6 +40,15 @@ export function TaskDetailModal({ task, open, onOpenChange, onComplete, onSkip }
   
   if (!task) return null;
   
+  // Defensive defaults for optional array fields
+  const steps = task.steps ?? [];
+  const inputs = task.inputs ?? [];
+  const outputs = task.outputs ?? [];
+  const commonMistakes = task.commonMistakes ?? [];
+  const toolsLinks = task.toolsLinks ?? [];
+  const evidenceExamples = task.evidenceExamples ?? [];
+  const taskEvidenceLinks = task.evidenceLinks ?? [];
+  
   const owner = owners.find(o => o.id === task.ownerId);
   const marketplace = task.marketplaceId ? marketplaces.find(m => m.id === task.marketplaceId) : null;
   
@@ -60,7 +69,7 @@ export function TaskDetailModal({ task, open, onOpenChange, onComplete, onSkip }
   };
 
   const handleToggleStep = (stepId: string) => {
-    const updatedSteps = task.steps.map(s => 
+    const updatedSteps = steps.map(s => 
       s.id === stepId ? { ...s, completed: !s.completed } : s
     );
     updateRoutineTask(task.id, { steps: updatedSteps });
@@ -83,8 +92,8 @@ export function TaskDetailModal({ task, open, onOpenChange, onComplete, onSkip }
     setIsEditingOperational(false);
   };
 
-  const completedSteps = task.steps.filter(s => s.completed).length;
-  const totalSteps = task.steps.length;
+  const completedSteps = steps.filter(s => s.completed).length;
+  const totalSteps = steps.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -155,40 +164,40 @@ export function TaskDetailModal({ task, open, onOpenChange, onComplete, onSkip }
                 </div>
               )}
 
-              {task.inputs.length > 0 && (
+              {inputs.length > 0 && (
                 <div>
                   <Label className="text-sm font-semibold">Inputs (o que preciso)</Label>
                   <ul className="mt-1 text-sm list-disc pl-4 text-muted-foreground">
-                    {task.inputs.map((input, i) => <li key={i}>{input}</li>)}
+                    {inputs.map((input, i) => <li key={i}>{input}</li>)}
                   </ul>
                 </div>
               )}
 
-              {task.outputs.length > 0 && (
+              {outputs.length > 0 && (
                 <div>
                   <Label className="text-sm font-semibold">Outputs (o que entrego)</Label>
                   <ul className="mt-1 text-sm list-disc pl-4 text-muted-foreground">
-                    {task.outputs.map((output, i) => <li key={i}>{output}</li>)}
+                    {outputs.map((output, i) => <li key={i}>{output}</li>)}
                   </ul>
                 </div>
               )}
 
-              {task.commonMistakes.length > 0 && (
+              {commonMistakes.length > 0 && (
                 <div>
                   <Label className="text-sm font-semibold flex items-center gap-1 text-amber-600">
                     <AlertTriangle className="h-4 w-4" /> Erros Comuns
                   </Label>
                   <ul className="mt-1 text-sm list-disc pl-4 text-muted-foreground">
-                    {task.commonMistakes.map((mistake, i) => <li key={i}>{mistake}</li>)}
+                    {commonMistakes.map((mistake, i) => <li key={i}>{mistake}</li>)}
                   </ul>
                 </div>
               )}
 
-              {task.toolsLinks.length > 0 && (
+              {toolsLinks.length > 0 && (
                 <div>
                   <Label className="text-sm font-semibold">Ferramentas</Label>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {task.toolsLinks.map((tool, i) => (
+                    {toolsLinks.map((tool, i) => (
                       <a key={i} href={tool.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
                         <ExternalLink className="h-3 w-3" /> {tool.label}
                       </a>
@@ -206,8 +215,8 @@ export function TaskDetailModal({ task, open, onOpenChange, onComplete, onSkip }
             </TabsContent>
 
             <TabsContent value="passos" className="space-y-3 mt-4">
-              {task.steps.length > 0 ? (
-                task.steps.map((step) => (
+              {steps.length > 0 ? (
+                steps.map((step) => (
                   <div key={step.id} className="flex items-center gap-3">
                     <Checkbox checked={step.completed} onCheckedChange={() => handleToggleStep(step.id)} disabled={task.status === 'DONE'} />
                     <span className={step.completed ? 'line-through text-muted-foreground' : ''}>{step.text}</span>
@@ -226,11 +235,11 @@ export function TaskDetailModal({ task, open, onOpenChange, onComplete, onSkip }
                 <p className="text-sm mt-1">{task.dod}</p>
               </div>
 
-              {task.evidenceExamples.length > 0 && (
+              {evidenceExamples.length > 0 && (
                 <div>
                   <Label className="text-sm font-semibold">Exemplos de Evidência Aceitos</Label>
                   <ul className="mt-1 text-sm list-disc pl-4 text-muted-foreground">
-                    {task.evidenceExamples.map((ex, i) => <li key={i}>{ex}</li>)}
+                    {evidenceExamples.map((ex, i) => <li key={i}>{ex}</li>)}
                   </ul>
                 </div>
               )}
@@ -240,9 +249,9 @@ export function TaskDetailModal({ task, open, onOpenChange, onComplete, onSkip }
               {task.status === 'DONE' ? (
                 <div>
                   <Label className="text-sm font-semibold">Evidências Registradas</Label>
-                  {task.evidenceLinks.length > 0 ? (
+                  {taskEvidenceLinks.length > 0 ? (
                     <ul className="mt-2 space-y-1">
-                      {task.evidenceLinks.map((link, i) => (
+                      {taskEvidenceLinks.map((link, i) => (
                         <li key={i} className="text-sm text-primary hover:underline">
                           <a href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
                             <ExternalLink className="h-3 w-3" /> {link}
