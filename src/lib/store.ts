@@ -3,14 +3,12 @@ import { persist } from 'zustand/middleware';
 import type {
   AppState,
   Owner,
-  Sector,
+  Marketplace,
   RoutineTask,
-  OKR,
-  KR,
+  KPIEntry,
   Incident,
   Experiment,
-  ScoreEntry,
-  WeeklyCanvas,
+  ScoreWeek,
   PointsLedger,
   WorkspaceConfig,
 } from '@/types';
@@ -26,27 +24,22 @@ interface AppStore extends AppState {
   updateOwner: (id: string, data: Partial<Owner>) => void;
   deleteOwner: (id: string) => void;
   
-  // Sectors CRUD
-  addSector: (sector: Sector) => void;
-  updateSector: (id: string, data: Partial<Sector>) => void;
-  deleteSector: (id: string) => void;
+  // Marketplaces CRUD
+  addMarketplace: (marketplace: Marketplace) => void;
+  updateMarketplace: (id: string, data: Partial<Marketplace>) => void;
+  deleteMarketplace: (id: string) => void;
   
   // Routine Tasks CRUD
   addRoutineTask: (task: RoutineTask) => void;
   updateRoutineTask: (id: string, data: Partial<RoutineTask>) => void;
   deleteRoutineTask: (id: string) => void;
-  completeRoutineTask: (id: string, evidencia: string) => void;
-  failRoutineTask: (id: string) => void;
+  completeRoutineTask: (id: string, evidenceLinks: string[], ownerId: string) => void;
+  skipRoutineTask: (id: string, reason: string) => void;
   
-  // OKRs CRUD
-  addOKR: (okr: OKR) => void;
-  updateOKR: (id: string, data: Partial<OKR>) => void;
-  deleteOKR: (id: string) => void;
-  
-  // KRs CRUD
-  addKR: (kr: KR) => void;
-  updateKR: (id: string, data: Partial<KR>) => void;
-  deleteKR: (id: string) => void;
+  // KPI Entries CRUD
+  addKPIEntry: (entry: KPIEntry) => void;
+  updateKPIEntry: (id: string, data: Partial<KPIEntry>) => void;
+  deleteKPIEntry: (id: string) => void;
   
   // Incidents CRUD
   addIncident: (incident: Incident) => void;
@@ -58,17 +51,12 @@ interface AppStore extends AppState {
   updateExperiment: (id: string, data: Partial<Experiment>) => void;
   deleteExperiment: (id: string) => void;
   
-  // Score Entries CRUD
-  addScoreEntry: (entry: ScoreEntry) => void;
-  updateScoreEntry: (id: string, data: Partial<ScoreEntry>) => void;
-  deleteScoreEntry: (id: string) => void;
+  // Score Weeks CRUD
+  addScoreWeek: (scoreWeek: ScoreWeek) => void;
+  updateScoreWeek: (id: string, data: Partial<ScoreWeek>) => void;
+  deleteScoreWeek: (id: string) => void;
   
-  // Weekly Canvas CRUD
-  addWeeklyCanvas: (canvas: WeeklyCanvas) => void;
-  updateWeeklyCanvas: (id: string, data: Partial<WeeklyCanvas>) => void;
-  deleteWeeklyCanvas: (id: string) => void;
-  
-  // Points Ledger CRUD
+  // Points Ledger
   addPoints: (entry: PointsLedger) => void;
   deletePoints: (id: string) => void;
   
@@ -84,18 +72,27 @@ const initialState: AppState = {
     nome: '',
     metaDiaria: 10000,
     moeda: 'BRL',
-    toleranciaSemaforo: 10,
     isOnboarded: false,
+    modulesEnabled: {
+      crm: false,
+      paidAds: true,
+      live: true,
+      affiliates: false,
+    },
+    scoreRules: {
+      criticalTaskDone: 3,
+      normalTaskDone: 1,
+      criticalMissed: -5,
+      normalMissed: -2,
+    },
   },
   owners: [],
-  sectors: [],
+  marketplaces: [],
   routineTasks: [],
-  okrs: [],
-  krs: [],
+  kpiEntries: [],
   incidents: [],
   experiments: [],
-  scoreEntries: [],
-  weeklyCanvas: [],
+  scoreWeeks: [],
   pointsLedger: [],
 };
 
@@ -120,15 +117,19 @@ export const useStore = create<AppStore>()(
       deleteOwner: (id) =>
         set((state) => ({ owners: state.owners.filter((o) => o.id !== id) })),
 
-      // Sectors
-      addSector: (sector) =>
-        set((state) => ({ sectors: [...state.sectors, sector] })),
-      updateSector: (id, data) =>
+      // Marketplaces
+      addMarketplace: (marketplace) =>
+        set((state) => ({ marketplaces: [...state.marketplaces, marketplace] })),
+      updateMarketplace: (id, data) =>
         set((state) => ({
-          sectors: state.sectors.map((s) => (s.id === id ? { ...s, ...data } : s)),
+          marketplaces: state.marketplaces.map((m) => (m.id === id ? { ...m, ...data } : m)),
         })),
-      deleteSector: (id) =>
-        set((state) => ({ sectors: state.sectors.filter((s) => s.id !== id) })),
+      deleteMarketplace: (id) =>
+        set((state) => ({
+          marketplaces: state.marketplaces.filter((m) => m.id !== id),
+          routineTasks: state.routineTasks.filter((t) => t.marketplaceId !== id),
+          kpiEntries: state.kpiEntries.filter((k) => k.marketplaceId !== id),
+        })),
 
       // Routine Tasks
       addRoutineTask: (task) =>
@@ -136,20 +137,30 @@ export const useStore = create<AppStore>()(
       updateRoutineTask: (id, data) =>
         set((state) => ({
           routineTasks: state.routineTasks.map((t) =>
-            t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString() } : t
+            t.id === id ? { ...t, ...data } : t
           ),
         })),
       deleteRoutineTask: (id) =>
         set((state) => ({
           routineTasks: state.routineTasks.filter((t) => t.id !== id),
         })),
-      completeRoutineTask: (id, evidencia) => {
+      completeRoutineTask: (id, evidenceLinks, ownerId) => {
         const task = get().routineTasks.find((t) => t.id === id);
         if (task) {
+          const points = task.critical 
+            ? get().config.scoreRules.criticalTaskDone 
+            : get().config.scoreRules.normalTaskDone;
+          
           set((state) => ({
             routineTasks: state.routineTasks.map((t) =>
               t.id === id
-                ? { ...t, status: 'done', evidencia, updatedAt: new Date().toISOString() }
+                ? { 
+                    ...t, 
+                    status: 'DONE', 
+                    evidenceLinks, 
+                    completedAt: new Date().toISOString(),
+                    completedByOwnerId: ownerId,
+                  }
                 : t
             ),
             pointsLedger: [
@@ -157,24 +168,29 @@ export const useStore = create<AppStore>()(
               {
                 id: crypto.randomUUID(),
                 date: new Date().toISOString().split('T')[0],
-                tipo: 'premio',
+                tipo: 'PREMIO',
                 referenciaType: 'routine',
                 referenciaId: id,
-                pontos: task.pontosOnDone,
-                ownerId: state.sectors.find((s) => s.id === task.sectorId)?.ownerId || '',
-                motivo: `Tarefa concluída: ${task.nome}`,
+                pontos: points,
+                ownerId,
+                marketplaceId: task.marketplaceId,
+                motivo: `Tarefa concluída: ${task.title}`,
               },
             ],
           }));
         }
       },
-      failRoutineTask: (id) => {
+      skipRoutineTask: (id, reason) => {
         const task = get().routineTasks.find((t) => t.id === id);
         if (task) {
+          const points = task.critical 
+            ? get().config.scoreRules.criticalMissed 
+            : get().config.scoreRules.normalMissed;
+          
           set((state) => ({
             routineTasks: state.routineTasks.map((t) =>
               t.id === id
-                ? { ...t, status: 'blocked', updatedAt: new Date().toISOString() }
+                ? { ...t, status: 'SKIPPED', skipReason: reason }
                 : t
             ),
             pointsLedger: [
@@ -182,38 +198,32 @@ export const useStore = create<AppStore>()(
               {
                 id: crypto.randomUUID(),
                 date: new Date().toISOString().split('T')[0],
-                tipo: 'pena',
+                tipo: 'PENA',
                 referenciaType: 'routine',
                 referenciaId: id,
-                pontos: task.pontosOnFail,
-                ownerId: state.sectors.find((s) => s.id === task.sectorId)?.ownerId || '',
-                motivo: `Tarefa não concluída: ${task.nome}`,
+                pontos: Math.abs(points),
+                ownerId: state.marketplaces.find((m) => m.id === task.marketplaceId)?.ownerId || 'owner-1',
+                marketplaceId: task.marketplaceId,
+                motivo: `Tarefa pulada: ${task.title} - ${reason}`,
               },
             ],
           }));
         }
       },
 
-      // OKRs
-      addOKR: (okr) => set((state) => ({ okrs: [...state.okrs, okr] })),
-      updateOKR: (id, data) =>
+      // KPI Entries
+      addKPIEntry: (entry) =>
+        set((state) => ({ kpiEntries: [...state.kpiEntries, entry] })),
+      updateKPIEntry: (id, data) =>
         set((state) => ({
-          okrs: state.okrs.map((o) => (o.id === id ? { ...o, ...data } : o)),
+          kpiEntries: state.kpiEntries.map((k) =>
+            k.id === id ? { ...k, ...data } : k
+          ),
         })),
-      deleteOKR: (id) =>
+      deleteKPIEntry: (id) =>
         set((state) => ({
-          okrs: state.okrs.filter((o) => o.id !== id),
-          krs: state.krs.filter((kr) => kr.okrId !== id),
+          kpiEntries: state.kpiEntries.filter((k) => k.id !== id),
         })),
-
-      // KRs
-      addKR: (kr) => set((state) => ({ krs: [...state.krs, kr] })),
-      updateKR: (id, data) =>
-        set((state) => ({
-          krs: state.krs.map((k) => (k.id === id ? { ...k, ...data } : k)),
-        })),
-      deleteKR: (id) =>
-        set((state) => ({ krs: state.krs.filter((k) => k.id !== id) })),
 
       // Incidents
       addIncident: (incident) =>
@@ -243,32 +253,18 @@ export const useStore = create<AppStore>()(
           experiments: state.experiments.filter((e) => e.id !== id),
         })),
 
-      // Score Entries
-      addScoreEntry: (entry) =>
-        set((state) => ({ scoreEntries: [...state.scoreEntries, entry] })),
-      updateScoreEntry: (id, data) =>
+      // Score Weeks
+      addScoreWeek: (scoreWeek) =>
+        set((state) => ({ scoreWeeks: [...state.scoreWeeks, scoreWeek] })),
+      updateScoreWeek: (id, data) =>
         set((state) => ({
-          scoreEntries: state.scoreEntries.map((s) =>
+          scoreWeeks: state.scoreWeeks.map((s) =>
             s.id === id ? { ...s, ...data } : s
           ),
         })),
-      deleteScoreEntry: (id) =>
+      deleteScoreWeek: (id) =>
         set((state) => ({
-          scoreEntries: state.scoreEntries.filter((s) => s.id !== id),
-        })),
-
-      // Weekly Canvas
-      addWeeklyCanvas: (canvas) =>
-        set((state) => ({ weeklyCanvas: [...state.weeklyCanvas, canvas] })),
-      updateWeeklyCanvas: (id, data) =>
-        set((state) => ({
-          weeklyCanvas: state.weeklyCanvas.map((w) =>
-            w.id === id ? { ...w, ...data } : w
-          ),
-        })),
-      deleteWeeklyCanvas: (id) =>
-        set((state) => ({
-          weeklyCanvas: state.weeklyCanvas.filter((w) => w.id !== id),
+          scoreWeeks: state.scoreWeeks.filter((s) => s.id !== id),
         })),
 
       // Points Ledger
@@ -284,14 +280,12 @@ export const useStore = create<AppStore>()(
         const seed = generateSeedData();
         set({
           owners: seed.owners,
-          sectors: seed.sectors,
+          marketplaces: seed.marketplaces,
           routineTasks: seed.routineTasks,
-          okrs: seed.okrs,
-          krs: seed.krs,
+          kpiEntries: seed.kpiEntries,
           incidents: seed.incidents,
           experiments: seed.experiments,
-          scoreEntries: seed.scoreEntries,
-          weeklyCanvas: seed.weeklyCanvas,
+          scoreWeeks: seed.scoreWeeks,
           pointsLedger: [],
         });
       },
@@ -301,14 +295,12 @@ export const useStore = create<AppStore>()(
         return JSON.stringify({
           config: state.config,
           owners: state.owners,
-          sectors: state.sectors,
+          marketplaces: state.marketplaces,
           routineTasks: state.routineTasks,
-          okrs: state.okrs,
-          krs: state.krs,
+          kpiEntries: state.kpiEntries,
           incidents: state.incidents,
           experiments: state.experiments,
-          scoreEntries: state.scoreEntries,
-          weeklyCanvas: state.weeklyCanvas,
+          scoreWeeks: state.scoreWeeks,
           pointsLedger: state.pointsLedger,
         }, null, 2);
       },
@@ -318,14 +310,12 @@ export const useStore = create<AppStore>()(
           set({
             config: data.config || initialState.config,
             owners: data.owners || [],
-            sectors: data.sectors || [],
+            marketplaces: data.marketplaces || [],
             routineTasks: data.routineTasks || [],
-            okrs: data.okrs || [],
-            krs: data.krs || [],
+            kpiEntries: data.kpiEntries || [],
             incidents: data.incidents || [],
             experiments: data.experiments || [],
-            scoreEntries: data.scoreEntries || [],
-            weeklyCanvas: data.weeklyCanvas || [],
+            scoreWeeks: data.scoreWeeks || [],
             pointsLedger: data.pointsLedger || [],
           });
           return true;
@@ -335,7 +325,7 @@ export const useStore = create<AppStore>()(
       },
     }),
     {
-      name: 'os-execucao-storage',
+      name: 'os-marketplaces-storage',
     }
   )
 );
