@@ -333,6 +333,17 @@ export const useStore = create<AppStore>()(
                   type: template.type,
                   title: template.title,
                   dod: template.dod,
+                  // Campos operacionais copiados do template
+                  description: template.description,
+                  steps: template.steps.map(s => ({ ...s, id: crypto.randomUUID(), completed: false })),
+                  inputs: [...template.inputs],
+                  outputs: [...template.outputs],
+                  commonMistakes: [...template.commonMistakes],
+                  timeboxMinutes: template.timeboxMinutes,
+                  toolsLinks: [...template.toolsLinks],
+                  evidenceExamples: [...template.evidenceExamples],
+                  escalationRule: template.escalationRule,
+                  // Campos de execução
                   evidenceRequired: template.evidenceRequired,
                   critical: template.critical,
                   points: template.points,

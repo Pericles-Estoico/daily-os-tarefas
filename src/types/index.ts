@@ -46,6 +46,13 @@ export interface Marketplace {
   createdAt: string;
 }
 
+// Step for checklist
+export interface TaskStep {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 // Routine Tasks
 export interface RoutineTask {
   id: string;
@@ -56,6 +63,17 @@ export interface RoutineTask {
   type: TaskType;
   title: string;
   dod: string;
+  // Novos campos operacionais (editáveis somente pelo gestor)
+  description: string; // Descrição operacional (markdown)
+  steps: TaskStep[]; // Checklist de passos
+  inputs: string[]; // O que precisa antes de começar
+  outputs: string[]; // O que entrega ao final
+  commonMistakes: string[]; // Erros comuns a evitar
+  timeboxMinutes: number; // Tempo estimado em minutos
+  toolsLinks: { label: string; url: string }[]; // Links úteis
+  evidenceExamples: string[]; // Exemplos de evidência aceitos
+  escalationRule: string; // Regra de escalonamento
+  // Campos de execução (editáveis pelo dono)
   evidenceRequired: boolean;
   critical: boolean;
   points: number;
@@ -210,10 +228,21 @@ export interface TaskTemplate {
   type: TaskType;
   title: string;
   dod: string;
+  // Campos operacionais detalhados (editáveis somente pelo gestor)
+  description: string;
+  steps: TaskStep[];
+  inputs: string[];
+  outputs: string[];
+  commonMistakes: string[];
+  timeboxMinutes: number;
+  toolsLinks: { label: string; url: string }[];
+  evidenceExamples: string[];
+  escalationRule: string;
+  // Campos de configuração
   evidenceRequired: boolean;
   critical: boolean;
   points: number;
-  weekDays: WeekDay[]; // seg-sex
+  weekDays: WeekDay[];
   isActive: boolean;
   createdAt: string;
 }
