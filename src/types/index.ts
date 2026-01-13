@@ -1,163 +1,209 @@
-// Tipos base do sistema OS Execução
+// ============= OS Marketplaces — Execução 10K/DIA =============
 
-export type SemaforoStatus = 'verde' | 'amarelo' | 'vermelho';
-export type TaskStatus = 'todo' | 'doing' | 'done' | 'blocked';
-export type Priority = 'normal' | 'high' | 'urgent';
-export type Frequencia = 'diario' | 'semanal' | 'mensal';
-export type Periodo = 'semana' | 'mes' | 'trimestre';
-export type PointType = 'pena' | 'premio';
-export type ExperimentDecision = 'duplicar' | 'iterar' | 'matar' | 'pendente';
+// Enums e tipos base
+export type MarketplacePriority = 'P0' | 'P1' | 'P2' | 'P3';
+export type MarketplaceStage = 'SCALE' | 'SETUP' | 'RECOVER' | 'PAUSED';
+export type MarketplaceCadence = 'DAILY' | 'WEEKLY' | 'SETUP_SPRINT' | 'RECOVER';
+export type TaskType = 'HIGIENE' | 'PROTECAO' | 'CRESCIMENTO' | 'SETUP' | 'ATIVACAO' | 'WEEKLY';
+export type TaskStatus = 'TODO' | 'DOING' | 'DONE' | 'SKIPPED';
+export type SemaforoStatus = 'GREEN' | 'YELLOW' | 'RED';
+export type IncidentSeverity = 'LOW' | 'MED' | 'HIGH' | 'CRITICAL';
+export type IncidentStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'VALIDATED';
+export type ExperimentStatus = 'RUNNING' | 'WON' | 'LOST' | 'ITERATE' | 'KILLED';
+export type ExperimentDecision = 'DUPLICAR' | 'ITERAR' | 'MATAR' | null;
+export type PointType = 'PENA' | 'PREMIO';
+export type WorkSchedule = 'ALL_DAYS' | 'WEEKDAYS';
 
+// Owners
 export interface Owner {
   id: string;
   nome: string;
   cargo: string;
   avatarColor: string;
+  schedule: WorkSchedule;
 }
 
-export interface Sector {
+// Marketplaces
+export interface MarketplaceModules {
+  crm: boolean;
+  paidAds: boolean;
+  supportSla: boolean;
+  live: boolean;
+  affiliates: boolean;
+}
+
+export interface Marketplace {
   id: string;
-  nome: string;
+  name: string;
+  priority: MarketplacePriority;
+  stage: MarketplaceStage;
+  isSelling: boolean;
+  cadence: MarketplaceCadence;
   ownerId: string;
+  modulesEnabled: MarketplaceModules;
+  cutoffTime: string;
+  notes: string;
+  createdAt: string;
 }
 
+// Routine Tasks
 export interface RoutineTask {
   id: string;
-  sectorId: string;
-  nome: string;
-  horario: string;
+  marketplaceId: string | null; // null = tarefa global
+  cadence: MarketplaceCadence;
+  time: string;
+  type: TaskType;
+  title: string;
   dod: string;
-  checklist: { id: string; text: string; checked: boolean }[];
-  evidencia: string;
-  prioridade: Priority;
+  evidenceRequired: boolean;
+  critical: boolean;
+  points: number;
   status: TaskStatus;
-  recorrencia: boolean;
-  diasSemana: number[];
-  pontosOnDone: number;
-  pontosOnFail: number;
-  isCritical: boolean;
+  evidenceLinks: string[];
+  completedAt: string | null;
+  completedByOwnerId: string | null;
+  skipReason: string | null;
   date: string;
   createdAt: string;
-  updatedAt: string;
 }
 
-export interface OKR {
-  id: string;
-  sectorId: string;
-  titulo: string;
-  descricao: string;
-  ownerId: string;
-  status: TaskStatus;
-  periodo: Periodo;
-  semaforo: SemaforoStatus;
+// KPI Entries (por dia e marketplace)
+export interface KPIValues {
+  gmv: number;
+  pedidos: number;
+  ticketMedio: number;
+  sessoes: number;
+  conversao: number;
+  itensVendidos: number;
+  reputacao: number;
+  slaExpedicao: number;
+  // SETUP específicos
+  catalogoAtivo?: number;
+  checkoutOk?: boolean;
+  primeiraVenda?: boolean;
 }
 
-export interface KR {
+export interface KPIEntry {
   id: string;
-  okrId: string;
-  nome: string;
-  definicao: string;
-  meta: number;
-  frequencia: Frequencia;
-  valorAtual: number;
+  date: string;
+  marketplaceId: string;
+  stageSnapshot: MarketplaceStage;
+  values: KPIValues;
   semaforo: SemaforoStatus;
-  fonte: string;
-  evidencia: string;
   notes: string;
+  evidenceLinks: string[];
 }
+
+// Incidents (Pedras)
+export type IncidentTag = 'checkout' | 'sla' | 'reputation' | 'rupture' | 'ads' | 'price' | 'other';
 
 export interface Incident {
   id: string;
-  sectorId: string;
-  titulo: string;
-  descricao: string;
-  evidencia: string;
-  causaRaiz: string;
-  acaoCorretiva: string;
-  ownerId: string;
-  prazo: string;
-  prioridade: Priority;
-  status: TaskStatus;
-  validacao: { id: string; text: string; checked: boolean }[];
+  marketplaceId: string | null;
   createdAt: string;
+  severity: IncidentSeverity;
+  title: string;
+  description: string;
+  triggerRule: string;
+  ownerId: string;
+  status: IncidentStatus;
+  rootCause: string;
+  correctiveAction: string;
+  preventiveAction: string;
+  validationEvidenceLinks: string[];
+  dueDate: string;
+  tags: IncidentTag[];
 }
 
+// Experiments/Tests
 export interface Experiment {
   id: string;
-  titulo: string;
-  hipotese: string;
-  variavel: string;
+  marketplaceId: string | null;
+  hypothesis: string;
+  variable: string;
+  metric: string;
+  successCriteria: string;
+  startDate: string;
+  endDate: string | null;
+  status: ExperimentStatus;
+  resultNotes: string;
+  evidenceLinks: string[];
+  decision: ExperimentDecision;
   ownerId: string;
-  metricaSucesso: string;
-  resultado: string;
-  decisao: ExperimentDecision;
-  evidencia: string;
-  dataInicio: string;
-  dataFim: string;
-  status: TaskStatus;
 }
 
-export interface ScoreEntry {
+// Score semanal
+export interface OwnerScore {
+  ownerId: string;
+  points: number;
+  tasksCompleted: number;
+  tasksMissed: number;
+  criticalCompleted: number;
+  criticalMissed: number;
+}
+
+export interface MarketplaceScore {
+  marketplaceId: string;
+  points: number;
+  tasksCompleted: number;
+  gmvTotal: number;
+  incidentsOpen: number;
+}
+
+export interface ScoreWeek {
   id: string;
-  date: string;
-  receita: number;
-  pedidos: number;
-  ticketMedio: number;
-  margemBruta: number;
-  gastoMidia: number;
-  cpa: number;
-  semaforoGeral: SemaforoStatus;
-  observacoes: string;
-  evidenciaLinks: string[];
+  weekStartDate: string;
+  weekEndDate: string;
+  ownerScores: OwnerScore[];
+  marketplaceScores: MarketplaceScore[];
+  penaltiesRewardsNotes: string;
+  finalDecision: string;
 }
 
-export interface WeeklyCanvas {
-  id: string;
-  weekStart: string;
-  weekEnd: string;
-  metaDiaria: number;
-  metaSemanal: number;
-  metaMensal: number;
-  ofertaAncora: string;
-  ticketAlvo: number;
-  margemAlvo: number;
-  drivers: Record<string, string>;
-  checklistSemanal: { id: string; text: string; checked: boolean }[];
-  testesSemana: string[];
-  pedrasTop3: string[];
-  decisoesCEO: { decisao: string; aprovado: boolean; proximoPasso: string }[];
-  recompensaPenaSemana: string;
-}
-
+// Points Ledger
 export interface PointsLedger {
   id: string;
   date: string;
   tipo: PointType;
-  referenciaType: 'routine' | 'okr' | 'kr' | 'incident';
+  referenciaType: 'routine' | 'kpi' | 'incident' | 'experiment';
   referenciaId: string;
   pontos: number;
   ownerId: string;
+  marketplaceId: string | null;
   motivo: string;
+}
+
+// Workspace Config
+export interface ModulesConfig {
+  crm: boolean;
+  paidAds: boolean;
+  live: boolean;
+  affiliates: boolean;
 }
 
 export interface WorkspaceConfig {
   nome: string;
   metaDiaria: number;
   moeda: string;
-  toleranciaSemaforo: number;
   isOnboarded: boolean;
+  modulesEnabled: ModulesConfig;
+  scoreRules: {
+    criticalTaskDone: number;
+    normalTaskDone: number;
+    criticalMissed: number;
+    normalMissed: number;
+  };
 }
 
+// App State
 export interface AppState {
   config: WorkspaceConfig;
   owners: Owner[];
-  sectors: Sector[];
+  marketplaces: Marketplace[];
   routineTasks: RoutineTask[];
-  okrs: OKR[];
-  krs: KR[];
+  kpiEntries: KPIEntry[];
   incidents: Incident[];
   experiments: Experiment[];
-  scoreEntries: ScoreEntry[];
-  weeklyCanvas: WeeklyCanvas[];
+  scoreWeeks: ScoreWeek[];
   pointsLedger: PointsLedger[];
 }
