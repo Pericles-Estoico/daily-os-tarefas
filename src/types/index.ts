@@ -189,6 +189,8 @@ export interface WorkspaceConfig {
   isOnboarded: boolean;
   modulesEnabled: ModulesConfig;
   currentUserId: string | null; // Usuário atual (simulação)
+  restrictViewToCurrentUser: boolean; // Restringir visão ao usuário atual
+  globalTasksVisibleTo: 'CEO' | 'ALL'; // Quem pode ver tarefas globais
   scoreRules: {
     criticalTaskDone: number;
     normalTaskDone: number;
@@ -197,15 +199,41 @@ export interface WorkspaceConfig {
   };
 }
 
+// Task Templates (recorrência mensal)
+export type WeekDay = 'seg' | 'ter' | 'qua' | 'qui' | 'sex';
+
+export interface TaskTemplate {
+  id: string;
+  marketplaceId: string | null;
+  ownerId: string;
+  time: string;
+  type: TaskType;
+  title: string;
+  dod: string;
+  evidenceRequired: boolean;
+  critical: boolean;
+  points: number;
+  weekDays: WeekDay[]; // seg-sex
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface TaskInstance extends RoutineTask {
+  templateId: string;
+  monthKey: string; // 'YYYY-MM' para identificar o mês
+}
+
 // App State
 export interface AppState {
   config: WorkspaceConfig;
   owners: Owner[];
   marketplaces: Marketplace[];
   routineTasks: RoutineTask[];
+  taskTemplates: TaskTemplate[];
   kpiEntries: KPIEntry[];
   incidents: Incident[];
   experiments: Experiment[];
   scoreWeeks: ScoreWeek[];
   pointsLedger: PointsLedger[];
+  lastMonthGenerated: string | null; // 'YYYY-MM' do último mês gerado
 }

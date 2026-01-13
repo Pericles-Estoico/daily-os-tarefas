@@ -5,6 +5,7 @@ import type {
   Owner,
   Marketplace,
   RoutineTask,
+  TaskTemplate,
   KPIEntry,
   Incident,
   Experiment,
@@ -60,6 +61,13 @@ interface AppStore extends AppState {
   addPoints: (entry: PointsLedger) => void;
   deletePoints: (id: string) => void;
   
+  // Task Templates CRUD
+  addTaskTemplate: (template: TaskTemplate) => void;
+  updateTaskTemplate: (id: string, data: Partial<TaskTemplate>) => void;
+  deleteTaskTemplate: (id: string) => void;
+  generateMonthTasks: (monthKey: string) => void;
+  setLastMonthGenerated: (monthKey: string) => void;
+  
   // Utility
   loadSeedData: () => void;
   resetData: () => void;
@@ -80,6 +88,8 @@ const initialState: AppState = {
       affiliates: false,
     },
     currentUserId: null,
+    restrictViewToCurrentUser: true, // ON por default
+    globalTasksVisibleTo: 'CEO',
     scoreRules: {
       criticalTaskDone: 3,
       normalTaskDone: 1,
@@ -90,11 +100,13 @@ const initialState: AppState = {
   owners: [],
   marketplaces: [],
   routineTasks: [],
+  taskTemplates: [],
   kpiEntries: [],
   incidents: [],
   experiments: [],
   scoreWeeks: [],
   pointsLedger: [],
+  lastMonthGenerated: null,
 };
 
 export const useStore = create<AppStore>()(
@@ -276,6 +288,75 @@ export const useStore = create<AppStore>()(
           pointsLedger: state.pointsLedger.filter((p) => p.id !== id),
         })),
 
+      // Task Templates
+      addTaskTemplate: (template) =>
+        set((state) => ({ taskTemplates: [...state.taskTemplates, template] })),
+      updateTaskTemplate: (id, data) =>
+        set((state) => ({
+          taskTemplates: state.taskTemplates.map((t) =>
+            t.id === id ? { ...t, ...data } : t
+          ),
+        })),
+      deleteTaskTemplate: (id) =>
+        set((state) => ({
+          taskTemplates: state.taskTemplates.filter((t) => t.id !== id),
+        })),
+      generateMonthTasks: (monthKey) => {
+        const state = get();
+        const year = parseInt(monthKey.split('-')[0]);
+        const month = parseInt(monthKey.split('-')[1]) - 1;
+        
+        const weekDayMap: Record<number, string> = {
+          1: 'seg', 2: 'ter', 3: 'qua', 4: 'qui', 5: 'sex'
+        };
+        
+        const newTasks: RoutineTask[] = [];
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(year, month, day);
+          const dayOfWeek = date.getDay();
+          
+          // Apenas seg-sex (1-5)
+          if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+            const weekDayStr = weekDayMap[dayOfWeek];
+            const dateStr = date.toISOString().split('T')[0];
+            
+            state.taskTemplates.filter(t => t.isActive).forEach((template) => {
+              if (template.weekDays.includes(weekDayStr as any)) {
+                newTasks.push({
+                  id: crypto.randomUUID(),
+                  marketplaceId: template.marketplaceId,
+                  ownerId: template.ownerId,
+                  cadence: 'DAILY',
+                  time: template.time,
+                  type: template.type,
+                  title: template.title,
+                  dod: template.dod,
+                  evidenceRequired: template.evidenceRequired,
+                  critical: template.critical,
+                  points: template.points,
+                  status: 'TODO',
+                  evidenceLinks: [],
+                  completedAt: null,
+                  completedByOwnerId: null,
+                  skipReason: null,
+                  date: dateStr,
+                  createdAt: new Date().toISOString(),
+                });
+              }
+            });
+          }
+        }
+        
+        set((state) => ({
+          routineTasks: [...state.routineTasks, ...newTasks],
+          lastMonthGenerated: monthKey,
+        }));
+      },
+      setLastMonthGenerated: (monthKey) =>
+        set({ lastMonthGenerated: monthKey }),
+
       // Utility
       loadSeedData: () => {
         const seed = generateSeedData();
@@ -283,6 +364,7 @@ export const useStore = create<AppStore>()(
           owners: seed.owners,
           marketplaces: seed.marketplaces,
           routineTasks: seed.routineTasks,
+          taskTemplates: seed.taskTemplates || [],
           kpiEntries: seed.kpiEntries,
           incidents: seed.incidents,
           experiments: seed.experiments,
@@ -298,11 +380,13 @@ export const useStore = create<AppStore>()(
           owners: state.owners,
           marketplaces: state.marketplaces,
           routineTasks: state.routineTasks,
+          taskTemplates: state.taskTemplates,
           kpiEntries: state.kpiEntries,
           incidents: state.incidents,
           experiments: state.experiments,
           scoreWeeks: state.scoreWeeks,
           pointsLedger: state.pointsLedger,
+          lastMonthGenerated: state.lastMonthGenerated,
         }, null, 2);
       },
       importData: (json) => {
@@ -313,11 +397,13 @@ export const useStore = create<AppStore>()(
             owners: data.owners || [],
             marketplaces: data.marketplaces || [],
             routineTasks: data.routineTasks || [],
+            taskTemplates: data.taskTemplates || [],
             kpiEntries: data.kpiEntries || [],
             incidents: data.incidents || [],
             experiments: data.experiments || [],
             scoreWeeks: data.scoreWeeks || [],
             pointsLedger: data.pointsLedger || [],
+            lastMonthGenerated: data.lastMonthGenerated || null,
           });
           return true;
         } catch {
