@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Upload, RefreshCw, Trash2, User } from 'lucide-react';
+import { Download, Upload, RefreshCw, Trash2, User, Eye, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Config() {
@@ -54,7 +54,18 @@ export default function Config() {
     toast.success('Usuário atual atualizado!');
   };
 
+  const handleRestrictViewChange = (checked: boolean) => {
+    updateConfig({ restrictViewToCurrentUser: checked });
+    toast.success(checked ? 'Visão restrita ativada' : 'Visão restrita desativada');
+  };
+
+  const handleGlobalTasksVisibleToChange = (value: string) => {
+    updateConfig({ globalTasksVisibleTo: value as 'CEO' | 'ALL' });
+    toast.success('Configuração de tarefas globais atualizada');
+  };
+
   const currentUser = config.currentUserId ? owners.find(o => o.id === config.currentUserId) : null;
+  const ceoOwner = owners.find(o => o.cargo === 'CEO');
 
   return (
     <div className="space-y-6">
@@ -63,42 +74,90 @@ export default function Config() {
         <p className="text-muted-foreground">Gerencie seu workspace</p>
       </div>
 
-      {/* Usuário Atual (Simulação) */}
-      <Card>
+      {/* Modo Usuário */}
+      <Card className="border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Usuário Atual (Simulação)
+            Modo Usuário
           </CardTitle>
           <CardDescription>
-            Selecione quem está usando o sistema para habilitar o filtro "Só minhas" na Rotina.
+            Configure qual usuário está usando o sistema e como a visão será filtrada.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <Select value={config.currentUserId || 'none'} onValueChange={handleCurrentUserChange}>
+        <CardContent className="space-y-6">
+          {/* Usuário atual */}
+          <div className="space-y-2">
+            <Label>Usuário Atual (Simulação)</Label>
+            <div className="flex items-center gap-4">
+              <Select value={config.currentUserId || 'none'} onValueChange={handleCurrentUserChange}>
+                <SelectTrigger className="w-[280px]">
+                  <SelectValue placeholder="Selecione o usuário" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum selecionado</SelectItem>
+                  {owners.map((owner) => (
+                    <SelectItem key={owner.id} value={owner.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-full" style={{ backgroundColor: owner.avatarColor }} />
+                        <span>{owner.nome}</span>
+                        <span className="text-muted-foreground text-xs">({owner.cargo})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {currentUser && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-6 w-6 rounded-full" style={{ backgroundColor: currentUser.avatarColor }} />
+                  Logado como: <strong>{currentUser.nome}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Toggle Restringir Visão */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Eye className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <Label className="text-sm font-medium">Restringir visão ao usuário atual</Label>
+                <p className="text-xs text-muted-foreground">
+                  Quando ativo, o usuário vê apenas suas próprias tarefas
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={config.restrictViewToCurrentUser}
+              onCheckedChange={handleRestrictViewChange}
+            />
+          </div>
+
+          {/* Tarefas Globais */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              <Label>Tarefas globais visíveis para:</Label>
+            </div>
+            <Select value={config.globalTasksVisibleTo} onValueChange={handleGlobalTasksVisibleToChange}>
               <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Selecione o usuário" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Nenhum selecionado</SelectItem>
-                {owners.map((owner) => (
-                  <SelectItem key={owner.id} value={owner.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 rounded-full" style={{ backgroundColor: owner.avatarColor }} />
-                      <span>{owner.nome}</span>
-                      <span className="text-muted-foreground text-xs">({owner.cargo})</span>
-                    </div>
-                  </SelectItem>
-                ))}
+                <SelectItem value="CEO">
+                  <div className="flex items-center gap-2">
+                    <span>Apenas CEO</span>
+                    {ceoOwner && (
+                      <span className="text-xs text-muted-foreground">({ceoOwner.nome})</span>
+                    )}
+                  </div>
+                </SelectItem>
+                <SelectItem value="ALL">Todos os usuários</SelectItem>
               </SelectContent>
             </Select>
-            {currentUser && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="h-6 w-6 rounded-full" style={{ backgroundColor: currentUser.avatarColor }} />
-                Logado como: <strong>{currentUser.nome}</strong>
-              </div>
-            )}
+            <p className="text-xs text-muted-foreground">
+              Define quem pode ver tarefas sem marketplace vinculado quando a visão está restrita.
+            </p>
           </div>
         </CardContent>
       </Card>
