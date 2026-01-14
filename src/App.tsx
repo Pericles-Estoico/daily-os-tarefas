@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Rotina from "./pages/Rotina";
 import Templates from "./pages/Templates";
 import Marketplaces from "./pages/Marketplaces";
+import Produtos from "./pages/Produtos";
 import OKRs from "./pages/OKRs";
 import Incidentes from "./pages/Incidentes";
 import Testes from "./pages/Testes";
@@ -27,6 +28,7 @@ function AppRoutes() {
       <Route path="/rotina" element={<Rotina />} />
       <Route path="/templates" element={<Templates />} />
       <Route path="/marketplaces" element={<Marketplaces />} />
+      <Route path="/produtos" element={<Produtos />} />
       <Route path="/okrs" element={<OKRs />} />
       <Route path="/incidentes" element={<Incidentes />} />
       <Route path="/testes" element={<Testes />} />

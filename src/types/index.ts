@@ -1,7 +1,9 @@
-// ============= OS Marketplaces — Execução 10K/DIA =============
+// ============= Marketplace Ops OS — Agenda por Dono + TaskEngine =============
 
 // Enums e tipos base
 export type MarketplacePriority = 'P0' | 'P1' | 'P2' | 'P3';
+export type ProductTypeStrategy = 'SINGLE_HERO' | 'KIT_HERO' | 'UPSELL' | 'CROSSSELL';
+export type TaskCategory = 'HYGIENE' | 'PROTECTION' | 'GROWTH' | 'SETUP' | 'ACTIVATION' | 'FINANCE' | 'GLOBAL';
 export type MarketplaceStage = 'SCALE' | 'SETUP' | 'RECOVER' | 'PAUSED';
 export type MarketplaceCadence = 'DAILY' | 'WEEKLY' | 'SETUP_SPRINT' | 'RECOVER';
 export type TaskType = 'HIGIENE' | 'PROTECAO' | 'CRESCIMENTO' | 'SETUP' | 'ATIVACAO' | 'WEEKLY';
@@ -252,11 +254,34 @@ export interface TaskInstance extends RoutineTask {
   monthKey: string; // 'YYYY-MM' para identificar o mês
 }
 
+// Products (Campeões Pareto)
+export interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  isChampion: boolean;
+  typeStrategy: ProductTypeStrategy;
+  marketplacesSelling: string[];
+  notes: string;
+  createdAt: string;
+}
+
+// Marketplace Playbook (algoritmo por canal)
+export interface MarketplacePlaybook {
+  marketplaceId: string;
+  description: string;
+  hygieneRules: string[];
+  protectionRules: string[];
+  growthRules: string[];
+  setupRules: string[];
+}
+
 // App State
 export interface AppState {
   config: WorkspaceConfig;
   owners: Owner[];
   marketplaces: Marketplace[];
+  products: Product[];
   routineTasks: RoutineTask[];
   taskTemplates: TaskTemplate[];
   kpiEntries: KPIEntry[];
@@ -264,5 +289,5 @@ export interface AppState {
   experiments: Experiment[];
   scoreWeeks: ScoreWeek[];
   pointsLedger: PointsLedger[];
-  lastMonthGenerated: string | null; // 'YYYY-MM' do último mês gerado
+  lastMonthGenerated: string | null;
 }
