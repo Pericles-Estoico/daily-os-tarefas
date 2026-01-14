@@ -642,6 +642,65 @@ A Shein penaliza lojas com tempo de resposta alto, afetando exposição e vendas
 
   // ============= KPI ENTRIES =============
   const kpiEntries: KPIEntry[] = [
+    // KPIs de HOJE (para que o Dashboard não fique vazio)
+    {
+      id: 'kpi-shein-today',
+      date: today,
+      marketplaceId: 'mp-shein',
+      stageSnapshot: 'SCALE',
+      values: {
+        gmv: 2950,
+        pedidos: 42,
+        ticketMedio: 70.24,
+        sessoes: 1150,
+        conversao: 3.65,
+        itensVendidos: 88,
+        reputacao: 4.8,
+        slaExpedicao: 98,
+      },
+      semaforo: 'GREEN',
+      notes: 'Dia em andamento. Projeção boa.',
+      evidenceLinks: [],
+    },
+    {
+      id: 'kpi-shopee150-today',
+      date: today,
+      marketplaceId: 'mp-shopee-150',
+      stageSnapshot: 'SCALE',
+      values: {
+        gmv: 2650,
+        pedidos: 35,
+        ticketMedio: 75.71,
+        sessoes: 920,
+        conversao: 3.80,
+        itensVendidos: 70,
+        reputacao: 4.9,
+        slaExpedicao: 100,
+      },
+      semaforo: 'GREEN',
+      notes: 'Campanha de cupom ativa.',
+      evidenceLinks: [],
+    },
+    {
+      id: 'kpi-ml-today',
+      date: today,
+      marketplaceId: 'mp-ml',
+      stageSnapshot: 'RECOVER',
+      values: {
+        gmv: 980,
+        pedidos: 15,
+        ticketMedio: 65.33,
+        sessoes: 520,
+        conversao: 2.88,
+        itensVendidos: 24,
+        reputacao: 4.35,
+        slaExpedicao: 94,
+      },
+      semaforo: 'YELLOW',
+      notes: 'Reputação subindo lentamente. SLA melhorou.',
+      evidenceLinks: [],
+    },
+    // KPIs de ONTEM
     {
       id: 'kpi-shein-1',
       date: yesterday,
