@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/lib/store';
-import { LayoutDashboard, ListChecks, Target, AlertTriangle, Beaker, Trophy, Settings, Store, Menu, Calendar } from 'lucide-react';
+import { LayoutDashboard, ListChecks, Target, AlertTriangle, Beaker, Trophy, Settings, Store, Menu, Calendar, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
@@ -11,6 +11,7 @@ const nav = [
   { href: '/rotina', icon: ListChecks, label: 'Rotina' },
   { href: '/templates', icon: Calendar, label: 'Templates' },
   { href: '/marketplaces', icon: Store, label: 'Marketplaces' },
+  { href: '/produtos', icon: Package, label: 'Produtos' },
   { href: '/okrs', icon: Target, label: 'OKRs & KPIs' },
   { href: '/incidentes', icon: AlertTriangle, label: 'Incidentes' },
   { href: '/testes', icon: Beaker, label: 'Testes' },

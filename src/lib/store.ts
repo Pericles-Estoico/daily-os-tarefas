@@ -4,6 +4,7 @@ import type {
   AppState,
   Owner,
   Marketplace,
+  Product,
   RoutineTask,
   TaskTemplate,
   KPIEntry,
@@ -29,6 +30,11 @@ interface AppStore extends AppState {
   addMarketplace: (marketplace: Marketplace) => void;
   updateMarketplace: (id: string, data: Partial<Marketplace>) => void;
   deleteMarketplace: (id: string) => void;
+  
+  // Products CRUD
+  addProduct: (product: Product) => void;
+  updateProduct: (id: string, data: Partial<Product>) => void;
+  deleteProduct: (id: string) => void;
   
   // Routine Tasks CRUD
   addRoutineTask: (task: RoutineTask) => void;
@@ -99,6 +105,7 @@ const initialState: AppState = {
   },
   owners: [],
   marketplaces: [],
+  products: [],
   routineTasks: [],
   taskTemplates: [],
   kpiEntries: [],
@@ -143,6 +150,16 @@ export const useStore = create<AppStore>()(
           routineTasks: state.routineTasks.filter((t) => t.marketplaceId !== id),
           kpiEntries: state.kpiEntries.filter((k) => k.marketplaceId !== id),
         })),
+
+      // Products
+      addProduct: (product) =>
+        set((state) => ({ products: [...state.products, product] })),
+      updateProduct: (id, data) =>
+        set((state) => ({
+          products: state.products.map((p) => (p.id === id ? { ...p, ...data } : p)),
+        })),
+      deleteProduct: (id) =>
+        set((state) => ({ products: state.products.filter((p) => p.id !== id) })),
 
       // Routine Tasks
       addRoutineTask: (task) =>
@@ -374,6 +391,7 @@ export const useStore = create<AppStore>()(
         set({
           owners: seed.owners,
           marketplaces: seed.marketplaces,
+          products: seed.products || [],
           routineTasks: seed.routineTasks,
           taskTemplates: seed.taskTemplates || [],
           kpiEntries: seed.kpiEntries,
@@ -390,6 +408,7 @@ export const useStore = create<AppStore>()(
           config: state.config,
           owners: state.owners,
           marketplaces: state.marketplaces,
+          products: state.products,
           routineTasks: state.routineTasks,
           taskTemplates: state.taskTemplates,
           kpiEntries: state.kpiEntries,
@@ -407,6 +426,7 @@ export const useStore = create<AppStore>()(
             config: data.config || initialState.config,
             owners: data.owners || [],
             marketplaces: data.marketplaces || [],
+            products: data.products || [],
             routineTasks: data.routineTasks || [],
             taskTemplates: data.taskTemplates || [],
             kpiEntries: data.kpiEntries || [],

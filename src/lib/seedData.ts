@@ -943,9 +943,20 @@ Garantir visibilidade diária dos principais indicadores de todos os canais.`,
     },
   ];
 
+  // ============= PRODUCTS (Campeões Pareto) =============
+  const products = [
+    { id: 'prod-1', sku: '6006-Branco-GLisa-VivoBran', name: 'Macacão Branco G Lisa Vivo Branco RN/P', isChampion: true, typeStrategy: 'SINGLE_HERO' as const, marketplacesSelling: ['mp-shein', 'mp-shopee-150'], notes: 'Campeão de vendas', createdAt: new Date().toISOString() },
+    { id: 'prod-2', sku: '1006-Branco-Rococo', name: 'Saída Maternidade Rococó Branco RN/P', isChampion: true, typeStrategy: 'SINGLE_HERO' as const, marketplacesSelling: ['mp-shein', 'mp-shopee-150'], notes: '', createdAt: new Date().toISOString() },
+    { id: 'prod-3', sku: '1004-PicuetaLisa', name: 'Saída Maternidade Picueta Lisa RN/P', isChampion: true, typeStrategy: 'SINGLE_HERO' as const, marketplacesSelling: ['mp-shopee-150'], notes: '', createdAt: new Date().toISOString() },
+    { id: 'prod-4', sku: '4001-Trigal-Branco', name: 'Kit Trigal Branco RN/P', isChampion: true, typeStrategy: 'KIT_HERO' as const, marketplacesSelling: [], notes: 'Kit para loja própria', createdAt: new Date().toISOString() },
+    { id: 'prod-5', sku: '4001-Trigal-Azul', name: 'Kit Trigal Azul RN/P', isChampion: true, typeStrategy: 'KIT_HERO' as const, marketplacesSelling: [], notes: 'Kit para loja própria', createdAt: new Date().toISOString() },
+    { id: 'prod-6', sku: '4001-Trigal-Capuccino', name: 'Kit Trigal Capuccino RN/P', isChampion: true, typeStrategy: 'KIT_HERO' as const, marketplacesSelling: [], notes: '', createdAt: new Date().toISOString() },
+  ];
+
   return {
     owners,
     marketplaces,
+    products,
     routineTasks,
     taskTemplates,
     kpiEntries,
