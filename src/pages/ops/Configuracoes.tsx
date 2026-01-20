@@ -3,6 +3,8 @@ import { useOps } from '@/contexts/OpsContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   User, 
   Download, 
@@ -13,15 +15,19 @@ import {
   AlertTriangle,
   Settings,
   FileSpreadsheet,
-  Eye
+  Eye,
+  Calendar,
+  Store,
+  X,
+  Package
 } from 'lucide-react';
 import { exportStateToJSON, clearState, importStateFromJSON } from '@/lib/storage';
-import { parseXLSXFile, importKPIsFromSheet, downloadTemplate, type XLSXValidationError } from '@/lib/xlsx-import';
+import { parseXLSXFile, importKPIsFromSheet, importSalesFromSheet, downloadTemplate, type XLSXValidationError } from '@/lib/xlsx-import';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { KPIDaily } from '@/types/marketplace-ops';
+import type { KPIDaily, SalesBySKU, StagedDailySales } from '@/types/marketplace-ops';
 
 export function Configuracoes() {
   const { state, updateState, resetState } = useOps();
@@ -30,6 +36,13 @@ export function Configuracoes() {
     kpis: KPIDaily[];
     errors: XLSXValidationError[];
   } | null>(null);
+
+  // Daily Sales Upload State
+  const [selectedMarketplaceId, setSelectedMarketplaceId] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  
+  // Summary Upload State
+  const [summaryDate, setSummaryDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const handleOwnerChange = (ownerId: string) => {
     updateState((prev) => ({
@@ -133,6 +146,168 @@ export function Configuracoes() {
     toast.success('Template baixado! Preencha e importe.');
   };
 
+  // Upload Daily Sales by Marketplace
+  const handleUploadDailySales = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedMarketplaceId) {
+      toast.error('Selecione um marketplace');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const data = await parseXLSXFile(file);
+      const { sales, errors } = importSalesFromSheet(data, state.marketplaces);
+
+      if (errors.length > 0) {
+        toast.error(`${errors.length} erros encontrados na planilha`);
+        return;
+      }
+
+      // Add to staging
+      const staged: StagedDailySales = {
+        id: `staged-${Date.now()}`,
+        marketplaceId: selectedMarketplaceId,
+        dateISO: selectedDate,
+        fileName: file.name,
+        sales: sales.map(s => ({
+          ...s,
+          dateStart: selectedDate,
+          dateEnd: selectedDate,
+          marketplaceId: selectedMarketplaceId,
+        })),
+        uploadedAt: new Date().toISOString(),
+      };
+
+      updateState((prev) => ({
+        ...prev,
+        importStaging: {
+          ...prev.importStaging,
+          dailySales: [...prev.importStaging.dailySales, staged],
+        },
+      }));
+
+      toast.success(`${sales.length} vendas adicionadas ao staging!`);
+    } catch (error: any) {
+      toast.error('Erro ao processar planilha: ' + error.message);
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  };
+
+  // Upload Daily Summary
+  const handleUploadDailySummary = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const data = await parseXLSXFile(file);
+      const { kpis, errors } = importKPIsFromSheet(data, state.marketplaces);
+
+      if (errors.length > 0) {
+        toast.error(`${errors.length} erros encontrados na planilha`);
+        return;
+      }
+
+      // Add to staging
+      updateState((prev) => ({
+        ...prev,
+        importStaging: {
+          ...prev.importStaging,
+          dailySummary: {
+            dateISO: summaryDate,
+            fileName: file.name,
+            kpis: kpis.map(k => ({
+              ...k,
+              dateISO: summaryDate,
+            })),
+            uploadedAt: new Date().toISOString(),
+          },
+        },
+      }));
+
+      toast.success(`Resumo do dia adicionado ao staging!`);
+    } catch (error: any) {
+      toast.error('Erro ao processar planilha: ' + error.message);
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  };
+
+  // Remove staged item
+  const handleRemoveStagedSales = (id: string) => {
+    updateState((prev) => ({
+      ...prev,
+      importStaging: {
+        ...prev.importStaging,
+        dailySales: prev.importStaging.dailySales.filter(s => s.id !== id),
+      },
+    }));
+    toast.info('Vendas removidas do staging');
+  };
+
+  const handleRemoveStagedSummary = () => {
+    updateState((prev) => ({
+      ...prev,
+      importStaging: {
+        ...prev.importStaging,
+        dailySummary: null,
+      },
+    }));
+    toast.info('Resumo removido do staging');
+  };
+
+  // Confirm and process all
+  const handleConfirmAllImports = () => {
+    const { dailySales, dailySummary } = state.importStaging;
+
+    if (dailySales.length === 0 && !dailySummary) {
+      toast.error('Nenhum dado para importar');
+      return;
+    }
+
+    updateState((prev) => {
+      // Add all sales
+      const allSales = dailySales.flatMap(ds => ds.sales);
+      
+      // Add all KPIs
+      const allKpis = dailySummary ? dailySummary.kpis : [];
+
+      return {
+        ...prev,
+        salesBySku: [...prev.salesBySku, ...allSales],
+        kpis: [...prev.kpis, ...allKpis],
+        importStaging: {
+          dailySales: [],
+          dailySummary: null,
+        },
+        settings: {
+          ...prev.settings,
+          lastImportDate: new Date().toISOString(),
+        },
+      };
+    });
+
+    toast.success(`✅ Importação concluída! ${dailySales.length} marketplace(s), ${dailySummary ? dailySummary.kpis.length : 0} KPI(s)`);
+  };
+
+  // Clear staging
+  const handleClearStaging = () => {
+    updateState((prev) => ({
+      ...prev,
+      importStaging: {
+        dailySales: [],
+        dailySummary: null,
+      },
+    }));
+    toast.info('Staging limpo');
+  };
+
   const currentOwner = state.owners.find((o) => o.id === state.settings.currentOwnerId);
 
   return (
@@ -145,6 +320,259 @@ export function Configuracoes() {
           Gerencie owners, usuário atual, import/export e backup
         </p>
       </div>
+
+      {/* 📦 SEÇÃO 1: Upload de Vendas Diárias por Marketplace */}
+      <Card className="border-2 border-blue-200 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Store className="h-5 w-5 text-blue-600" />
+            1. Upload de Vendas Diárias por Marketplace
+          </CardTitle>
+          <CardDescription>
+            Importe as vendas de cada marketplace separadamente (um arquivo por marketplace)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          
+          {/* Form */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="marketplace-select">Marketplace *</Label>
+              <Select value={selectedMarketplaceId} onValueChange={setSelectedMarketplaceId}>
+                <SelectTrigger id="marketplace-select">
+                  <SelectValue placeholder="Selecione o marketplace..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {state.marketplaces.filter(m => m.active).map(mp => (
+                    <SelectItem key={mp.id} value={mp.id}>
+                      {mp.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="date-select">Data *</Label>
+              <Input
+                id="date-select"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Upload Button */}
+          <div>
+            <label htmlFor="upload-daily-sales">
+              <Button 
+                variant="default" 
+                className="w-full" 
+                disabled={importing || !selectedMarketplaceId}
+                asChild
+              >
+                <span>
+                  <Upload className="h-4 w-4 mr-2" />
+                  {importing ? 'Processando...' : 'Upload Vendas do Marketplace'}
+                </span>
+              </Button>
+            </label>
+            <input
+              id="upload-daily-sales"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleUploadDailySales}
+              className="hidden"
+            />
+          </div>
+
+          {/* Instructions */}
+          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border text-xs">
+            <p className="font-semibold mb-1">📋 Colunas esperadas:</p>
+            <code className="bg-muted p-2 rounded block">
+              Código (SKU), Quantidade, Valor
+            </code>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 📊 SEÇÃO 2: Upload do Resumo Total do Dia */}
+      <Card className="border-2 border-green-200 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-green-600" />
+            2. Upload do Resumo Total do Dia
+          </CardTitle>
+          <CardDescription>
+            Importe o resumo consolidado com número de pedidos, ticket médio e totais
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          
+          {/* Date Selector */}
+          <div>
+            <Label htmlFor="summary-date">Data do Resumo *</Label>
+            <Input
+              id="summary-date"
+              type="date"
+              value={summaryDate}
+              onChange={(e) => setSummaryDate(e.target.value)}
+            />
+          </div>
+
+          {/* Upload Button */}
+          <div>
+            <label htmlFor="upload-summary">
+              <Button 
+                variant="default" 
+                className="w-full" 
+                disabled={importing}
+                asChild
+              >
+                <span>
+                  <Upload className="h-4 w-4 mr-2" />
+                  {importing ? 'Processando...' : 'Upload Resumo Total'}
+                </span>
+              </Button>
+            </label>
+            <input
+              id="upload-summary"
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleUploadDailySummary}
+              className="hidden"
+            />
+          </div>
+
+          {/* Instructions */}
+          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border text-xs">
+            <p className="font-semibold mb-1">📋 Colunas esperadas:</p>
+            <code className="bg-muted p-2 rounded block">
+              Loja, Pedidos, Ticket Médio, Quantidade, Valor
+            </code>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 🎯 SEÇÃO 3: Staging Area - Preview e Confirmação */}
+      {(state.importStaging.dailySales.length > 0 || state.importStaging.dailySummary) && (
+        <Card className="border-2 border-purple-200 shadow-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-purple-600" />
+              3. Preview - Confirme os Dados
+            </CardTitle>
+            <CardDescription>
+              Revise tudo antes de confirmar a importação final
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {state.importStaging.dailySales.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Marketplaces</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold text-green-600">
+                    {state.importStaging.dailySummary ? '✓' : '-'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Resumo</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {state.importStaging.dailySales.reduce((sum, ds) => sum + ds.sales.length, 0)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">SKUs Total</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Staged Sales List */}
+            {state.importStaging.dailySales.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm">Vendas por Marketplace:</h4>
+                {state.importStaging.dailySales.map((staged) => {
+                  const mp = state.marketplaces.find(m => m.id === staged.marketplaceId);
+                  return (
+                    <div key={staged.id} className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <Package className="h-4 w-4 text-blue-600" />
+                        <div>
+                          <p className="font-semibold text-sm">{mp?.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(staged.dateISO).toLocaleDateString('pt-BR')} • {staged.sales.length} SKUs • {staged.fileName}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleRemoveStagedSales(staged.id)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Staged Summary */}
+            {state.importStaging.dailySummary && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm">Resumo Total:</h4>
+                <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-sm">Resumo do Dia</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(state.importStaging.dailySummary.dateISO).toLocaleDateString('pt-BR')} • {state.importStaging.dailySummary.kpis.length} KPIs • {state.importStaging.dailySummary.fileName}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleRemoveStagedSummary}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={handleClearStaging}
+                className="flex-1"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Limpar Tudo
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleConfirmAllImports}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Confirmar e Processar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Usuário Atual */}
       <Card className="border-0 shadow-lg">

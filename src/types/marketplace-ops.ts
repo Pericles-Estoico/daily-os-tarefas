@@ -297,6 +297,35 @@ export interface Settings {
 // ============================================
 // 15. APP STATE
 // ============================================
+// ============================================
+// Import Staging Types
+// ============================================
+
+export interface StagedDailySales {
+  id: string;
+  marketplaceId: string;
+  dateISO: string;
+  fileName: string;
+  sales: SalesBySKU[];
+  uploadedAt: string;
+}
+
+export interface StagedDailySummary {
+  dateISO: string;
+  fileName: string;
+  kpis: KPIDaily[];
+  uploadedAt: string;
+}
+
+export interface ImportStaging {
+  dailySales: StagedDailySales[];
+  dailySummary: StagedDailySummary | null;
+}
+
+// ============================================
+// App State
+// ============================================
+
 export interface AppState {
   owners: Owner[];
   marketplaces: Marketplace[];
@@ -313,6 +342,7 @@ export interface AppState {
   settings: Settings;
   dailyAnalyses: DailyAnalysis[];
   importSessions: DailyImportSession[];
+  importStaging: ImportStaging;
 }
 
 // ============================================
@@ -348,4 +378,8 @@ export const INITIAL_APP_STATE: AppState = {
   settings: DEFAULT_SETTINGS,
   dailyAnalyses: [],
   importSessions: [],
+  importStaging: {
+    dailySales: [],
+    dailySummary: null,
+  },
 };
