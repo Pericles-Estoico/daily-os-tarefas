@@ -1,69 +1,45 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useStore } from "@/lib/store";
-import { AppLayout } from "@/components/layout/AppLayout";
-import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
-import Dashboard from "./pages/Dashboard";
-import Rotina from "./pages/Rotina";
-import Templates from "./pages/Templates";
-import Marketplaces from "./pages/Marketplaces";
-import Produtos from "./pages/Produtos";
-import OKRs from "./pages/OKRs";
-import Incidentes from "./pages/Incidentes";
-import Testes from "./pages/Testes";
-import Pontos from "./pages/Pontos";
-import Config from "./pages/Config";
-import NotFound from "./pages/NotFound";
-import { CopilotDrawer } from "./components/copilot/CopilotDrawer";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { OpsProvider } from '@/contexts/OpsContext';
+import { OpsLayout } from '@/components/ops/OpsLayout';
+import { Toaster } from 'sonner';
 
-const queryClient = new QueryClient();
+// Pages
+import { Dashboard } from '@/pages/ops/Dashboard';
+import { Rotina } from '@/pages/ops/Rotina';
+import { Templates } from '@/pages/ops/Templates';
+import { Marketplaces } from '@/pages/ops/Marketplaces';
+import { Produtos } from '@/pages/ops/Produtos';
+import { OKRs } from '@/pages/ops/OKRs';
+import { Incidentes } from '@/pages/ops/Incidentes';
+import { Testes } from '@/pages/ops/Testes';
+import { Pontos } from '@/pages/ops/Pontos';
+import { Configuracoes } from '@/pages/ops/Configuracoes';
+import { ImportarVendas } from '@/pages/ops/ImportarVendas';
 
-function AppRoutes() {
+function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/rotina" element={<Rotina />} />
-      <Route path="/templates" element={<Templates />} />
-      <Route path="/marketplaces" element={<Marketplaces />} />
-      <Route path="/produtos" element={<Produtos />} />
-      <Route path="/okrs" element={<OKRs />} />
-      <Route path="/incidentes" element={<Incidentes />} />
-      <Route path="/testes" element={<Testes />} />
-      <Route path="/pontos" element={<Pontos />} />
-      <Route path="/config" element={<Config />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-}
-
-function MainApp() {
-  const isOnboarded = useStore((state) => state.config.isOnboarded);
-
-  if (!isOnboarded) {
-    return <OnboardingFlow />;
-  }
-
-  return (
-    <AppLayout>
-      <AppRoutes />
-      <CopilotDrawer />
-    </AppLayout>
-  );
-}
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+    <OpsProvider>
       <BrowserRouter>
-        <MainApp />
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route element={<OpsLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/rotina" element={<Rotina />} />
+            <Route path="/importar-vendas" element={<ImportarVendas />} />
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/marketplaces" element={<Marketplaces />} />
+            <Route path="/produtos" element={<Produtos />} />
+            <Route path="/okrs" element={<OKRs />} />
+            <Route path="/incidentes" element={<Incidentes />} />
+            <Route path="/testes" element={<Testes />} />
+            <Route path="/pontos" element={<Pontos />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+          </Route>
+        </Routes>
+        <Toaster richColors position="top-right" />
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </OpsProvider>
+  );
+}
 
 export default App;
