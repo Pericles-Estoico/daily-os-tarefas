@@ -39,14 +39,20 @@ export function Rotina() {
   const filteredTasks = useMemo(() => {
     let tasks = state.tasks.filter((t) => t.dateISO === selectedDate);
 
-    // Filtro "Só minhas"
-    if (onlyMine) {
+    // Se MEMBER: sempre mostra APENAS suas tarefas (sem opção de ver outras)
+    if (state.settings.currentUserRole === 'MEMBER') {
       tasks = tasks.filter((t) => t.ownerId === state.settings.currentOwnerId);
-    }
+    } else {
+      // Se ADMIN: pode usar filtros
+      // Filtro "Só minhas"
+      if (onlyMine) {
+        tasks = tasks.filter((t) => t.ownerId === state.settings.currentOwnerId);
+      }
 
-    // Filtro dropdown Owner
-    if (filterOwner !== 'all') {
-      tasks = tasks.filter((t) => t.ownerId === filterOwner);
+      // Filtro dropdown Owner
+      if (filterOwner !== 'all') {
+        tasks = tasks.filter((t) => t.ownerId === filterOwner);
+      }
     }
 
     // Ordenar: horário -> critical first
@@ -56,7 +62,7 @@ export function Rotina() {
       }
       return a.isCritical && !b.isCritical ? -1 : 1;
     });
-  }, [state.tasks, selectedDate, onlyMine, filterOwner, state.settings.currentOwnerId]);
+  }, [state.tasks, selectedDate, onlyMine, filterOwner, state.settings.currentOwnerId, state.settings.currentUserRole]);
 
   const stats = useMemo(() => {
     const total = filteredTasks.length;
@@ -252,40 +258,53 @@ export function Rotina() {
               />
             </div>
 
-            {/* Dono */}
-            <div className="space-y-2">
-              <Label>Dono</Label>
-              <Select value={filterOwner} onValueChange={setFilterOwner}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {state.owners
-                    .filter((o) => o.active)
-                    .map((owner) => (
-                      <SelectItem key={owner.id} value={owner.id}>
-                        {owner.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Só minhas */}
-            <div className="space-y-2">
-              <Label>Filtro Rápido</Label>
-              <div className="flex items-center space-x-2 h-10">
-                <Switch
-                  id="only-mine"
-                  checked={onlyMine}
-                  onCheckedChange={setOnlyMine}
-                />
-                <Label htmlFor="only-mine" className="cursor-pointer">
-                  Só minhas ({state.owners.find(o => o.id === state.settings.currentOwnerId)?.name})
-                </Label>
+            {/* Dono - Apenas para ADMIN */}
+            {state.settings.currentUserRole === 'ADMIN' && (
+              <div className="space-y-2">
+                <Label>Dono</Label>
+                <Select value={filterOwner} onValueChange={setFilterOwner}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {state.owners
+                      .filter((o) => o.active)
+                      .map((owner) => (
+                        <SelectItem key={owner.id} value={owner.id}>
+                          {owner.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
+
+            {/* Só minhas - Apenas para ADMIN */}
+            {state.settings.currentUserRole === 'ADMIN' && (
+              <div className="space-y-2">
+                <Label>Filtro Rápido</Label>
+                <div className="flex items-center space-x-2 h-10">
+                  <Switch
+                    id="only-mine"
+                    checked={onlyMine}
+                    onCheckedChange={setOnlyMine}
+                  />
+                  <Label htmlFor="only-mine" className="cursor-pointer">
+                    Só minhas ({state.owners.find(o => o.id === state.settings.currentOwnerId)?.name})
+                  </Label>
+                </div>
+              </div>
+            )}
+            
+            {/* Aviso para MEMBER */}
+            {state.settings.currentUserRole === 'MEMBER' && (
+              <div className="col-span-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200">
+                <p className="text-sm text-yellow-900 dark:text-yellow-100">
+                  🔒 <strong>Modo Member:</strong> Você vê apenas suas tarefas atribuídas.
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

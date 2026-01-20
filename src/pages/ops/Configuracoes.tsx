@@ -638,58 +638,105 @@ export function Configuracoes() {
         </Card>
       )}
 
-      {/* Usuário Atual */}
-      <Card className="border-0 shadow-lg">
+      {/* Usuário Atual - Sistema de Acesso */}
+      <Card className="border-2 border-blue-200 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5 text-blue-600" />
-            Usuário Atual
+            👤 Usuário Atual (Sistema de Acesso)
           </CardTitle>
           <CardDescription>
-            Define qual owner está usando o sistema (filtro "Só minhas")
+            Quem está operando o sistema agora. Define o que você pode ver e fazer.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <Select value={state.settings.currentOwnerId} onValueChange={handleOwnerChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione um owner" />
-                </SelectTrigger>
-                <SelectContent>
-                  {state.owners
-                    .filter((o) => o.active)
-                    .map((owner) => (
-                      <SelectItem key={owner.id} value={owner.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{owner.name}</span>
-                          <span className="text-xs text-muted-foreground">({owner.role})</span>
-                          {owner.isAdmin && (
-                            <Badge variant="secondary" className="text-xs">Admin</Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label htmlFor="current-user-select" className="text-sm font-medium mb-2 block">
+              Selecione o Usuário
+            </Label>
+            <Select
+              value={state.settings.currentOwnerId}
+              onValueChange={(value) => {
+                const selectedOwner = state.owners.find(o => o.id === value);
+                const newRole = selectedOwner?.isManager ? 'ADMIN' : 'MEMBER';
+                
+                updateState((prev) => ({
+                  ...prev,
+                  settings: {
+                    ...prev.settings,
+                    currentOwnerId: value,
+                    currentUserRole: newRole,
+                  },
+                }));
+                
+                toast.success(`Usuário alterado para ${selectedOwner?.name} (${newRole})`);
+              }}
+            >
+              <SelectTrigger id="current-user-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {state.owners.filter((o) => o.active).map((owner) => (
+                  <SelectItem key={owner.id} value={owner.id}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                        style={{ backgroundColor: owner.color || '#6B7280' }}
+                      >
+                        {owner.initials}
+                      </div>
+                      {owner.name} - {owner.role}
+                      {owner.isManager && <Badge variant="default" className="ml-2 text-xs">Admin</Badge>}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
+          
           {currentOwner && (
-            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold">
-                  {currentOwner.name.charAt(0)}
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border-2">
+              <div className="flex items-center gap-3 mb-3">
+                <div 
+                  className="h-12 w-12 rounded-full flex items-center justify-center text-white text-xl font-bold"
+                  style={{ backgroundColor: currentOwner.color || '#6B7280' }}
+                >
+                  {currentOwner.initials}
                 </div>
-                <div className="flex-1">
+                <div>
                   <p className="font-semibold text-lg">{currentOwner.name}</p>
                   <p className="text-sm text-muted-foreground">{currentOwner.role}</p>
                 </div>
-                {currentOwner.isAdmin && (
-                  <Badge variant="default" className="flex items-center gap-1">
-                    <Shield className="h-3 w-3" />
-                    Admin
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between p-2 bg-muted rounded">
+                  <span className="font-medium">Nível de Acesso:</span>
+                  <Badge variant={state.settings.currentUserRole === 'ADMIN' ? 'default' : 'secondary'}>
+                    {state.settings.currentUserRole}
                   </Badge>
+                </div>
+                
+                {state.settings.currentUserRole === 'ADMIN' ? (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200">
+                    <p className="font-semibold text-blue-900 dark:text-blue-100 mb-1">🔓 Admin - Acesso Total</p>
+                    <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+                      <li>✅ Vê TODAS as tarefas (todos os owners)</li>
+                      <li>✅ Pode editar descrições e templates</li>
+                      <li>✅ Pode criar/editar marketplaces</li>
+                      <li>✅ Acesso completo a configurações</li>
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200">
+                    <p className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">🔒 Member - Acesso Limitado</p>
+                    <ul className="text-xs text-yellow-800 dark:text-yellow-200 space-y-1">
+                      <li>✅ Vê APENAS suas tarefas atribuídas</li>
+                      <li>✅ Pode executar/pular suas tarefas</li>
+                      <li>✅ Pode anexar evidências</li>
+                      <li>❌ Não pode editar templates/descrições</li>
+                    </ul>
+                  </div>
                 )}
               </div>
             </div>

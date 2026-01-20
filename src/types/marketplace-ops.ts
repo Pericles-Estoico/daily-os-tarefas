@@ -293,8 +293,11 @@ export interface Test {
 // ============================================
 // 14. SETTINGS
 // ============================================
+export type UserRole = 'ADMIN' | 'MEMBER';
+
 export interface Settings {
   currentOwnerId: string;
+  currentUserRole: UserRole; // ADMIN = vê tudo, MEMBER = vê só suas tarefas
   appVersion: string;
   lastImportDate: string | null;
   dailyGoal: number;
@@ -363,6 +366,7 @@ export const DEFAULT_OWNERS: Owner[] = [
 
 export const DEFAULT_SETTINGS: Settings = {
   currentOwnerId: 'pericles',
+  currentUserRole: 'ADMIN', // Péricles começa como Admin
   appVersion: '1.0.0',
   lastImportDate: null,
   dailyGoal: 10000,
