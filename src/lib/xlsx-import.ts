@@ -10,6 +10,33 @@ export interface XLSXValidationError {
   error: string;
 }
 
+/**
+ * Normaliza string removendo acentos, convertendo para lowercase e removendo espaços extras
+ */
+function normalizeString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD') // Decompõe caracteres acentuados
+    .replace(/[\u0300-\u036f]/g, '') // Remove marcas diacríticas (acentos)
+    .replace(/\s+/g, ' ') // Substitui múltiplos espaços por um único
+    .trim();
+}
+
+/**
+ * Encontra índice de coluna de forma flexível (ignora case e acentos)
+ */
+function findColumnIndex(headers: string[], ...searchTerms: string[]): number {
+  const normalizedHeaders = headers.map(h => normalizeString(h));
+  
+  for (const term of searchTerms) {
+    const normalizedTerm = normalizeString(term);
+    const index = normalizedHeaders.findIndex(h => h.includes(normalizedTerm));
+    if (index !== -1) return index;
+  }
+  
+  return -1;
+}
+
 export async function parseXLSXFile(file: File): Promise<any[][]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -44,15 +71,16 @@ export function importKPIsFromSheet(
   const kpis: KPIDaily[] = [];
   const errors: XLSXValidationError[] = [];
   
-  const headers = data[0].map(h => String(h).toLowerCase().trim());
+  const headers = data[0].map(h => String(h));
   
+  // Busca flexível de colunas (ignora case e acentos)
   const colMap = {
-    loja: headers.findIndex(h => h.includes('loja') || h.includes('marketplace')),
-    pedidos: headers.findIndex(h => h.includes('pedidos') || h.includes('orders')),
-    ticketMedio: headers.findIndex(h => h.includes('ticket') && h.includes('medio')),
-    quantidade: headers.findIndex(h => h.includes('quantidade') || h.includes('qtd')),
-    valor: headers.findIndex(h => h.includes('valor') && !h.includes('peca')),
-    valorPeca: headers.findIndex(h => h.includes('valor') && h.includes('peca')),
+    loja: findColumnIndex(headers, 'loja', 'marketplace', 'mercado'),
+    pedidos: findColumnIndex(headers, 'pedidos', 'orders', 'pedido'),
+    ticketMedio: findColumnIndex(headers, 'ticket medio', 'ticket médio', 'ticket'),
+    quantidade: findColumnIndex(headers, 'quantidade', 'qtd', 'qtde'),
+    valor: findColumnIndex(headers, 'valor total', 'valor', 'receita', 'faturamento'),
+    valorPeca: findColumnIndex(headers, 'valor peca', 'valor peça', 'valor unitario', 'valor unitário'),
   };
   
   if (colMap.loja === -1 || colMap.valor === -1 || colMap.pedidos === -1) {
@@ -109,12 +137,13 @@ export function importSalesFromSheet(
   const sales: SalesBySKU[] = [];
   const errors: XLSXValidationError[] = [];
   
-  const headers = data[0].map(h => String(h).toLowerCase().trim());
+  const headers = data[0].map(h => String(h));
   
+  // Busca flexível de colunas (ignora case e acentos)
   const colMap = {
-    codigo: headers.findIndex(h => h.includes('codigo') || h === 'sku'),
-    quantidade: headers.findIndex(h => h.includes('quantidade') || h.includes('qtd')),
-    valor: headers.findIndex(h => h.includes('valor') || h.includes('receita')),
+    codigo: findColumnIndex(headers, 'codigo', 'código', 'sku', 'cod', 'produto'),
+    quantidade: findColumnIndex(headers, 'quantidade', 'qtd', 'qtde', 'qty'),
+    valor: findColumnIndex(headers, 'valor', 'receita', 'faturamento', 'total'),
   };
   
   if (colMap.codigo === -1 || colMap.quantidade === -1 || colMap.valor === -1) {
