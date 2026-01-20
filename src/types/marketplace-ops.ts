@@ -4,13 +4,15 @@
 // ============================================
 
 // ============================================
-// 1. OWNER (Personas)
+// 1. OWNER (Personas / User)
 // ============================================
 export interface Owner {
   id: string;
   name: string;
   role: string;
-  isAdmin: boolean;
+  initials: string;
+  color?: string;
+  isManager: boolean; // Péricles = true, can edit descriptions/templates
   active: boolean;
 }
 
@@ -24,6 +26,7 @@ export type MarketplaceCadence = 'DAILY' | 'WEEKLY' | 'SETUP_SPRINT' | 'RECOVER_
 export interface Marketplace {
   id: string;
   name: string;
+  slug: string; // ex: "mercado_livre_matriz"
   priority: MarketplacePriority;
   stage: MarketplaceStage;
   cadence: MarketplaceCadence;
@@ -143,7 +146,7 @@ export interface DailyImportSession {
 // ============================================
 // 8. TASK TEMPLATE
 // ============================================
-export type TaskType = 'HIGIENE' | 'PROTECAO' | 'CRESCIMENTO' | 'SETUP';
+export type TaskType = 'GLOBAL' | 'HIGIENE' | 'PROTECAO' | 'CRESCIMENTO' | 'ESTRATEGIA' | 'SETUP';
 export type TaskSeverity = 'NORMAL' | 'CRITICA';
 
 export interface TaskTemplateStep {
@@ -154,30 +157,30 @@ export interface TaskTemplateStep {
 export interface TaskTemplate {
   id: string;
   title: string;
-  marketplaceId: string | null;
-  ownerId: string;
-  timeHHMM: string;
+  marketplaceId: string | null; // null = "Global"
+  ownerId: string; // OBRIGATÓRIO
+  timeHHMM: string; // HH:mm format
   type: TaskType;
   severity: TaskSeverity;
-  daysOfWeek: number[];
-  DoD: string;
-  critical: boolean;
-  evidenceRequired: boolean;
-  enabled: boolean;
-  descriptionMarkdown: string;
+  daysOfWeek: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
+  DoD: string; // Definition of Done
+  isCritical: boolean;
+  requireEvidence: boolean;
+  active: boolean;
+  description: string; // Instrução completa editável por gestor
   steps: TaskTemplateStep[];
   expectedMinutes: number;
   toolsLinks: string[];
   whenToOpenIncident: string;
   escalationRule: string;
-  pointsOnDone: number;
-  pointsOnSkip: number;
+  points: number; // pontuação ao concluir
+  penaltyPoints: number; // penalidade se falhar crítica
 }
 
 // ============================================
 // 9. TASK INSTANCE
 // ============================================
-export type TaskStatus = 'TODO' | 'DONE' | 'SKIPPED';
+export type TaskStatus = 'TODO' | 'DOING' | 'DONE' | 'SKIPPED';
 
 export interface TaskInstanceStepState {
   label: string;
@@ -187,20 +190,23 @@ export interface TaskInstanceStepState {
 export interface TaskInstance {
   id: string;
   templateId: string | null;
-  dateISO: string;
-  ownerId: string;
-  marketplaceId: string | null;
+  dateISO: string; // YYYY-MM-DD
+  timeHHMM: string; // HH:mm
   title: string;
-  timeHHMM: string;
+  marketplaceId: string | null;
+  ownerId: string;
   type: TaskType;
-  severity: TaskSeverity;
-  DoD: string;
-  descriptionMarkdown: string;
-  stepsState: TaskInstanceStepState[];
   status: TaskStatus;
-  evidenceLink: string | null;
+  isCritical: boolean;
+  requireEvidence: boolean;
+  DoD: string;
+  description: string;
+  evidenceUrl: string | null;
+  completedAt: string | null; // datetime ISO
+  skippedReason: string | null;
+  pointsAwarded: number | null;
+  stepsState: TaskInstanceStepState[];
   notes: string;
-  completedAt: string | null;
 }
 
 // ============================================
@@ -349,10 +355,10 @@ export interface AppState {
 // 16. DEFAULTS
 // ============================================
 export const DEFAULT_OWNERS: Owner[] = [
-  { id: 'pericles', name: 'Péricles', role: 'CEO', isAdmin: true, active: true },
-  { id: 'stella', name: 'Stella', role: 'CFO', isAdmin: false, active: true },
-  { id: 'walistter', name: 'Walistter', role: 'CMO', isAdmin: false, active: true },
-  { id: 'elisangela', name: 'Elisangela', role: 'Operação de Marketplaces', isAdmin: false, active: true },
+  { id: 'pericles', name: 'Péricles', role: 'CEO', initials: 'PC', color: '#8B5CF6', isManager: true, active: true },
+  { id: 'stella', name: 'Stella', role: 'CFO', initials: 'ST', color: '#10B981', isManager: false, active: true },
+  { id: 'walistter', name: 'Walistter', role: 'CMO', initials: 'WA', color: '#F59E0B', isManager: false, active: true },
+  { id: 'elisangela', name: 'Elisangela', role: 'Gestora de marketing/vendas/marketplaces/CRM', initials: 'EL', color: '#EC4899', isManager: false, active: true },
 ];
 
 export const DEFAULT_SETTINGS: Settings = {

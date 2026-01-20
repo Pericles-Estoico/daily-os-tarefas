@@ -49,12 +49,12 @@ export function Rotina() {
       tasks = tasks.filter((t) => t.ownerId === filterOwner);
     }
 
-    // Ordenar: horário -> severidade
+    // Ordenar: horário -> critical first
     return tasks.sort((a, b) => {
       if (a.timeHHMM !== b.timeHHMM) {
         return a.timeHHMM.localeCompare(b.timeHHMM);
       }
-      return a.severity === 'CRITICA' ? -1 : 1;
+      return a.isCritical && !b.isCritical ? -1 : 1;
     });
   }, [state.tasks, selectedDate, onlyMine, filterOwner, state.settings.currentOwnerId]);
 
@@ -63,13 +63,13 @@ export function Rotina() {
     const done = filteredTasks.filter((t) => t.status === 'DONE').length;
     const skipped = filteredTasks.filter((t) => t.status === 'SKIPPED').length;
     const todo = filteredTasks.filter((t) => t.status === 'TODO').length;
-    const critical = filteredTasks.filter((t) => t.severity === 'CRITICA' && t.status === 'TODO').length;
+    const critical = filteredTasks.filter((t) => t.isCritical && t.status === 'TODO').length;
     return { total, done, skipped, todo, critical };
   }, [filteredTasks]);
 
   const handleExecute = (task: TaskInstance) => {
     setExecutingTask(task);
-    setEvidenceLink(task.evidenceLink || '');
+    setEvidenceLink(task.evidenceUrl || '');
     setNotes(task.notes || '');
     setStepsState(task.stepsState || []);
   };
@@ -77,13 +77,14 @@ export function Rotina() {
   const handleComplete = () => {
     if (!executingTask) return;
 
-    const template = state.templates.find((t) => t.id === executingTask.templateId);
-    const requiresEvidence = template?.evidenceRequired;
-
-    if (requiresEvidence && !evidenceLink) {
-      toast.error('Evidência obrigatória para esta tarefa crítica');
+    if (executingTask.requireEvidence && !evidenceLink) {
+      toast.error('Evidência obrigatória para esta tarefa!');
       return;
     }
+
+    // Award points
+    const template = state.templates.find((t) => t.id === executingTask.templateId);
+    const points = template?.points || 10;
 
     updateState((prev) => ({
       ...prev,
@@ -92,10 +93,11 @@ export function Rotina() {
           ? {
               ...t,
               status: 'DONE' as TaskStatus,
-              evidenceLink,
+              evidenceUrl: evidenceLink,
               notes,
               stepsState,
               completedAt: new Date().toISOString(),
+              pointsAwarded: points,
             }
           : t
       ),
@@ -342,24 +344,31 @@ export function Rotina() {
                             )}
                             {!marketplace && <span>Global</span>}
                             <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {owner?.name}
-                            </span>
+                            {owner && (
+                              <span className="flex items-center gap-1">
+                                <div 
+                                  className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                  style={{ backgroundColor: owner.color || '#6B7280' }}
+                                >
+                                  {owner.initials}
+                                </div>
+                                {owner.name}
+                              </span>
+                            )}
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {getStatusBadge(task.status)}
                             <Badge className={getTypeColor(task.type)}>{task.type}</Badge>
-                            {task.severity === 'CRITICA' && (
+                            {task.isCritical && (
                               <Badge variant="destructive" className="flex items-center gap-1">
                                 <Flame className="h-3 w-3" />
                                 Crítica
                               </Badge>
                             )}
-                            {template?.evidenceRequired && (
+                            {task.requireEvidence && (
                               <Badge variant="secondary" className="flex items-center gap-1">
                                 <Shield className="h-3 w-3" />
-                                Evidência
+                                Evidência Obrigatória
                               </Badge>
                             )}
                           </div>

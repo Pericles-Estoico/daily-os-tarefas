@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { exportStateToJSON, clearState, importStateFromJSON } from '@/lib/storage';
 import { parseXLSXFile, importKPIsFromSheet, importSalesFromSheet, downloadTemplate, downloadSalesTemplate, downloadSummaryTemplate, type XLSXValidationError } from '@/lib/xlsx-import';
+import { applySeedData } from '@/lib/seed-data';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -308,6 +309,11 @@ export function Configuracoes() {
     toast.info('Staging limpo');
   };
 
+  const handleLoadDemo = () => {
+    updateState((prev) => applySeedData(prev));
+    toast.success('✅ Demo carregado! Mercado Livre Matriz + 5 tarefas de hoje criadas');
+  };
+
   const currentOwner = state.owners.find((o) => o.id === state.settings.currentOwnerId);
 
   return (
@@ -320,6 +326,40 @@ export function Configuracoes() {
           Gerencie owners, usuário atual, import/export e backup
         </p>
       </div>
+
+      {/* 🎮 Demo Data - Carregar dados completos */}
+      <Card className="border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-purple-600" />
+            🎮 Demo Data Completo
+          </CardTitle>
+          <CardDescription>
+            Carregue dados de demonstração para testar filtros, tarefas e o sistema completo
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border">
+              <h4 className="font-semibold text-sm mb-2">📦 O que será criado:</h4>
+              <ul className="text-sm space-y-1 text-muted-foreground">
+                <li>✅ <strong>Marketplace:</strong> Mercado Livre Matriz (playbook completo)</li>
+                <li>✅ <strong>5 Templates</strong> de tarefas (diferentes donos e horários)</li>
+                <li>✅ <strong>5 Tarefas para HOJE</strong> (testar filtros por dono)</li>
+                <li>✅ <strong>Donos:</strong> Péricles, Stella, Walistter, Elisangela</li>
+              </ul>
+            </div>
+            <Button
+              onClick={handleLoadDemo}
+              variant="default"
+              className="w-full bg-purple-600 hover:bg-purple-700"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Carregar Demo Completo
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 📦 SEÇÃO 1: Upload de Vendas Diárias por Marketplace */}
       <Card className="border-2 border-blue-200 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950">
