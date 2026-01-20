@@ -158,18 +158,52 @@ export function importSalesFromSheet(
   return { sales, errors };
 }
 
-export function downloadTemplate() {
-  const template = `Loja,Pedidos,Ticket Médio,Quantidade,Valor,Valor Peça
-Mercado Livre Matriz,85,176.47,120,15000.50,125.00
-Shein,45,220.00,95,9900.00,104.21`;
+/**
+ * Download Template: Vendas Detalhadas por Marketplace
+ * Colunas: Código (SKU), Quantidade, Valor
+ */
+export function downloadSalesTemplate() {
+  const template = `Código,Quantidade,Valor
+PROD-001,15,1875.00
+PROD-002,8,960.00
+PROD-003,22,3300.00
+KIT-001,5,750.00`;
   
   const blob = new Blob([template], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'template-total-dia.csv';
+  link.download = 'template-vendas-marketplace.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Download Template: Resumo Total do Dia
+ * Colunas: Loja, Pedidos, Ticket Médio, Quantidade, Valor, Valor Peça
+ */
+export function downloadSummaryTemplate() {
+  const template = `Loja,Pedidos,Ticket Médio,Quantidade,Valor,Valor Peça
+Mercado Livre Matriz,85,176.47,120,15000.50,125.00
+Shein,45,220.00,95,9900.00,104.21
+Amazon,32,195.50,68,6256.00,92.00`;
+  
+  const blob = new Blob([template], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'template-resumo-total-dia.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * @deprecated Use downloadSalesTemplate() ou downloadSummaryTemplate()
+ */
+export function downloadTemplate() {
+  downloadSummaryTemplate();
 }

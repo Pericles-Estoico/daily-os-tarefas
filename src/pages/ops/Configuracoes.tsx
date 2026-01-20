@@ -22,7 +22,7 @@ import {
   Package
 } from 'lucide-react';
 import { exportStateToJSON, clearState, importStateFromJSON } from '@/lib/storage';
-import { parseXLSXFile, importKPIsFromSheet, importSalesFromSheet, downloadTemplate, type XLSXValidationError } from '@/lib/xlsx-import';
+import { parseXLSXFile, importKPIsFromSheet, importSalesFromSheet, downloadTemplate, downloadSalesTemplate, downloadSummaryTemplate, type XLSXValidationError } from '@/lib/xlsx-import';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -387,11 +387,23 @@ export function Configuracoes() {
           </div>
 
           {/* Instructions */}
-          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border text-xs">
+          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border text-xs space-y-2">
             <p className="font-semibold mb-1">📋 Colunas esperadas:</p>
             <code className="bg-muted p-2 rounded block">
               Código (SKU), Quantidade, Valor
             </code>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                downloadSalesTemplate();
+                toast.success('Template de vendas baixado!');
+              }}
+              className="w-full mt-2"
+            >
+              <Download className="h-3 w-3 mr-2" />
+              Baixar Template de Vendas
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -445,11 +457,23 @@ export function Configuracoes() {
           </div>
 
           {/* Instructions */}
-          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border text-xs">
+          <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border text-xs space-y-2">
             <p className="font-semibold mb-1">📋 Colunas esperadas:</p>
             <code className="bg-muted p-2 rounded block">
               Loja, Pedidos, Ticket Médio, Quantidade, Valor
             </code>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                downloadSummaryTemplate();
+                toast.success('Template de resumo baixado!');
+              }}
+              className="w-full mt-2"
+            >
+              <Download className="h-3 w-3 mr-2" />
+              Baixar Template de Resumo
+            </Button>
           </div>
         </CardContent>
       </Card>
