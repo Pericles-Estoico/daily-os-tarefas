@@ -188,8 +188,16 @@ export function Produtos() {
       }
       await deleteProduct.mutateAsync(sku);
       toast.success('Produto excluído com sucesso!');
-    } catch (error) {
-      toast.error('Erro ao excluir produto');
+    } catch (error: any) {
+      // Check for foreign key constraint violation (sales exist for this SKU)
+      if (error?.code === '23503') {
+        toast.error(
+          'Não é possível excluir este produto. Existem vendas registradas para este SKU. Delete as vendas primeiro em Configurações > Gerenciar Dados.',
+          { duration: 6000 }
+        );
+      } else {
+        toast.error('Erro ao excluir produto');
+      }
       console.error(error);
     }
   };
