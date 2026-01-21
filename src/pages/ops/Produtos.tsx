@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { useOps } from '@/contexts/OpsContext';
-import { Product, ProductTypeStrategy } from '@/types/marketplace-ops';
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProductsData';
+import type { ProductTypeStrategy } from '@/integrations/supabase/database.types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,11 +11,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Pencil, Trash2, Package, Star, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function Produtos() {
-  const { state, updateState } = useOps();
+  const { data: products = [], isLoading } = useProducts();
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStrategy, setFilterStrategy] = useState<string>('all');
@@ -34,38 +39,38 @@ export function Produtos() {
 
   // Get unique categories
   const categories = useMemo(() => {
-    const cats = new Set(state.products.map(p => p.category).filter(Boolean));
-    return Array.from(cats).sort();
-  }, [state.products]);
+    const cats = new Set(products.map(p => p.category).filter(Boolean));
+    return Array.from(cats).sort() as string[];
+  }, [products]);
 
   // Filtered products
   const filteredProducts = useMemo(() => {
-    return state.products.filter(product => {
+    return products.filter(product => {
       const matchesSearch = 
         product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.name.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesCategory = filterCategory === 'all' || product.category === filterCategory;
-      const matchesStrategy = filterStrategy === 'all' || product.typeStrategy === filterStrategy;
+      const matchesStrategy = filterStrategy === 'all' || product.type_strategy === filterStrategy;
       const matchesChampion = 
         filterChampion === 'all' || 
-        (filterChampion === 'yes' && product.isChampion) ||
-        (filterChampion === 'no' && !product.isChampion);
+        (filterChampion === 'yes' && product.is_champion) ||
+        (filterChampion === 'no' && !product.is_champion);
       
       return matchesSearch && matchesCategory && matchesStrategy && matchesChampion;
     });
-  }, [state.products, searchTerm, filterCategory, filterStrategy, filterChampion]);
+  }, [products, searchTerm, filterCategory, filterStrategy, filterChampion]);
 
   // Stats
   const stats = useMemo(() => {
     return {
-      total: state.products.length,
-      champions: state.products.filter(p => p.isChampion).length,
-      single: state.products.filter(p => p.typeStrategy === 'SINGLE').length,
-      kit: state.products.filter(p => p.typeStrategy === 'KIT').length,
-      both: state.products.filter(p => p.typeStrategy === 'BOTH').length,
+      total: products.length,
+      champions: products.filter(p => p.is_champion).length,
+      single: products.filter(p => p.type_strategy === 'SINGLE').length,
+      kit: products.filter(p => p.type_strategy === 'KIT').length,
+      both: products.filter(p => p.type_strategy === 'BOTH').length,
     };
-  }, [state.products]);
+  }, [products]);
 
   const openCreateDialog = () => {
     setEditingProduct(null);
@@ -82,59 +87,65 @@ export function Produtos() {
     setEditingProduct(product);
     setFormSku(product.sku);
     setFormName(product.name);
-    setFormCategory(product.category);
-    setFormTypeStrategy(product.typeStrategy);
-    setFormIsChampion(product.isChampion);
-    setFormNotes(product.notes);
+    setFormCategory(product.category || '');
+    setFormTypeStrategy(product.type_strategy);
+    setFormIsChampion(product.is_champion);
+    setFormNotes(product.notes || '');
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formSku.trim() || !formName.trim()) {
       toast.error('SKU e Nome são obrigatórios');
       return;
     }
 
-    const productData: Product = {
-      sku: formSku.trim(),
-      name: formName.trim(),
-      category: formCategory.trim(),
-      typeStrategy: formTypeStrategy,
-      isChampion: formIsChampion,
-      notes: formNotes.trim(),
-    };
-
-    updateState((prev) => {
+    try {
       if (editingProduct) {
-        // Edit existing
-        const products = prev.products.map(p => 
-          p.sku === editingProduct.sku ? productData : p
-        );
+        await updateProduct.mutateAsync({
+          sku: editingProduct.sku,
+          updates: {
+            name: formName.trim(),
+            category: formCategory.trim() || null,
+            type_strategy: formTypeStrategy,
+            is_champion: formIsChampion,
+            notes: formNotes.trim() || null,
+          },
+        });
         toast.success('Produto atualizado com sucesso!');
-        return { ...prev, products };
       } else {
-        // Create new
-        if (prev.products.some(p => p.sku === productData.sku)) {
+        // Check if SKU already exists
+        if (products.some(p => p.sku === formSku.trim())) {
           toast.error('SKU já existe!');
-          return prev;
+          return;
         }
+        await createProduct.mutateAsync({
+          sku: formSku.trim(),
+          name: formName.trim(),
+          category: formCategory.trim() || null,
+          type_strategy: formTypeStrategy,
+          is_champion: formIsChampion,
+          notes: formNotes.trim() || null,
+        });
         toast.success('Produto criado com sucesso!');
-        return { ...prev, products: [...prev.products, productData] };
       }
-    });
-
-    setIsDialogOpen(false);
+      setIsDialogOpen(false);
+    } catch (error) {
+      toast.error('Erro ao salvar produto');
+      console.error(error);
+    }
   };
 
-  const handleDelete = (sku: string) => {
+  const handleDelete = async (sku: string) => {
     if (!confirm('Tem certeza que deseja excluir este produto?')) return;
     
-    updateState((prev) => ({
-      ...prev,
-      products: prev.products.filter(p => p.sku !== sku),
-    }));
-    
-    toast.success('Produto excluído com sucesso!');
+    try {
+      await deleteProduct.mutateAsync(sku);
+      toast.success('Produto excluído com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao excluir produto');
+      console.error(error);
+    }
   };
 
   const getStrategyBadge = (strategy: ProductTypeStrategy) => {
@@ -145,6 +156,26 @@ export function Produtos() {
     };
     return <Badge className={colors[strategy]}>{strategy}</Badge>;
   };
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-9 w-48" />
+            <Skeleton className="h-5 w-64 mt-2" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -252,8 +283,11 @@ export function Produtos() {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave}>
-                {editingProduct ? 'Salvar' : 'Criar'}
+              <Button 
+                onClick={handleSave}
+                disabled={createProduct.isPending || updateProduct.isPending}
+              >
+                {createProduct.isPending || updateProduct.isPending ? 'Salvando...' : editingProduct ? 'Salvar' : 'Criar'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -403,9 +437,9 @@ export function Produtos() {
                     </TableCell>
                     <TableCell>{product.name}</TableCell>
                     <TableCell>{product.category || '-'}</TableCell>
-                    <TableCell>{getStrategyBadge(product.typeStrategy)}</TableCell>
+                    <TableCell>{getStrategyBadge(product.type_strategy)}</TableCell>
                     <TableCell>
-                      {product.isChampion && (
+                      {product.is_champion && (
                         <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                       )}
                     </TableCell>
@@ -422,6 +456,7 @@ export function Produtos() {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDelete(product.sku)}
+                          disabled={deleteProduct.isPending}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

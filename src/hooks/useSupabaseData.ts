@@ -208,3 +208,20 @@ export function useAppSettings() {
     },
   });
 }
+
+// Hook para buscar a última data com dados de KPI
+export function useLatestDataDate() {
+  return useQuery({
+    queryKey: ['latest_data_date'],
+    queryFn: async () => {
+      const { data, error } = await (supabase
+        .from('kpi_daily') as any)
+        .select('date_iso')
+        .order('date_iso', { ascending: false })
+        .limit(1);
+      
+      if (error) throw error;
+      return (data as { date_iso: string }[])?.[0]?.date_iso || null;
+    },
+  });
+}

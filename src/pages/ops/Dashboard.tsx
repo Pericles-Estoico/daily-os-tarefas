@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useOps } from '@/contexts/OpsContext';
 import { 
   TrendingUp, 
@@ -10,17 +11,22 @@ import {
   Users,
   FileUp,
   Settings,
-  ListTodo
+  ListTodo,
+  CalendarIcon,
+  AlertCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link } from 'react-router-dom';
 import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import {
   useTodayKPIs,
   useKPIsLast7Days,
@@ -30,14 +36,34 @@ import {
   usePointsRankingWeek,
   useOwners,
   useAppSettings,
+  useLatestDataDate,
 } from '@/hooks/useSupabaseData';
 
 export function Dashboard() {
   const { state } = useOps();
   const now = new Date();
   const todayISO = format(now, 'yyyy-MM-dd');
+  
+  // Date selector state
+  const [selectedDate, setSelectedDate] = useState<Date>(now);
+  const selectedDateISO = format(selectedDate, 'yyyy-MM-dd');
+  
+  // Fetch latest date with data for fallback
+  const { data: latestDataDate } = useLatestDataDate();
+  
+  // Auto-select latest date with data if today has no data
+  const { data: todayKPIs, isLoading: loadingKPIs } = useTodayKPIs(selectedDateISO);
+  
+  useEffect(() => {
+    // If today has no data and we have a latest date, use it
+    if (!loadingKPIs && todayKPIs?.length === 0 && latestDataDate && selectedDateISO === todayISO) {
+      setSelectedDate(new Date(latestDataDate + 'T12:00:00'));
+    }
+  }, [loadingKPIs, todayKPIs, latestDataDate, selectedDateISO, todayISO]);
+  
+  const isViewingDifferentDate = selectedDateISO !== todayISO;
   const currentTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const currentDate = now.toLocaleDateString('pt-BR', { 
+  const displayDate = selectedDate.toLocaleDateString('pt-BR', { 
     weekday: 'long', 
     year: 'numeric', 
     month: 'long', 
@@ -45,10 +71,9 @@ export function Dashboard() {
   });
 
   // Fetch data from Supabase
-  const { data: todayKPIs, isLoading: loadingKPIs } = useTodayKPIs(todayISO);
   const { data: last7DaysKPIs, isLoading: loadingChart } = useKPIsLast7Days();
   const { data: marketplacesP1, isLoading: loadingMarketplaces } = useMarketplacesP1();
-  const { data: todayTasks, isLoading: loadingTasks } = useTodayTasks(todayISO);
+  const { data: todayTasks, isLoading: loadingTasks } = useTodayTasks(selectedDateISO);
   const { data: openIncidents, isLoading: loadingIncidents } = useOpenIncidents();
   const { data: ranking, isLoading: loadingRanking } = usePointsRankingWeek();
   const { data: owners } = useOwners();
@@ -96,12 +121,52 @@ export function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 dark:from-slate-950 dark:via-blue-950 dark:to-slate-950">
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         
+        {/* Date different from today banner */}
+        {isViewingDifferentDate && (
+          <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              Exibindo dados de <strong>{format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</strong>.
+              {latestDataDate && (
+                <Button 
+                  variant="link" 
+                  className="text-amber-700 dark:text-amber-300 p-0 h-auto ml-1 underline"
+                  onClick={() => setSelectedDate(now)}
+                >
+                  Voltar para hoje
+                </Button>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Hero Section */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white shadow-2xl">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold mb-2">Olá, {ownerName}! 👋</h1>
-              <p className="text-blue-100 text-lg capitalize">{currentDate}</p>
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      className="text-blue-100 hover:text-white hover:bg-white/20 text-lg capitalize p-0 h-auto font-normal"
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {displayDate}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={(date) => date && setSelectedDate(date)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               <p className="text-blue-200 text-sm mt-1">{currentTime} • Marketplace Ops OS v1.0</p>
             </div>
             <div className="text-right">
