@@ -238,15 +238,25 @@ export function Dashboard() {
           <Card className="border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Conversão
+                Ticket Médio
               </CardTitle>
               <Target className="h-5 w-5 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-muted-foreground">—</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Requer integração de visitas
-              </p>
+              {loadingKPIs ? (
+                <Skeleton className="h-9 w-24" />
+              ) : avgTicket > 0 ? (
+                <>
+                  <div className="text-3xl font-bold text-purple-600">
+                    R$ {avgTicket.toFixed(2)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {todayOrders} pedido{todayOrders !== 1 ? 's' : ''} hoje
+                  </p>
+                </>
+              ) : (
+                <div className="text-3xl font-bold text-muted-foreground">—</div>
+              )}
             </CardContent>
           </Card>
 
