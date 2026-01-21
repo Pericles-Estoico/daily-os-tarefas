@@ -830,7 +830,7 @@ export function Configuracoes() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {owner.isAdmin && (
+                  {owner.isManager && (
                     <Badge variant="secondary" className="flex items-center gap-1">
                       <Shield className="h-3 w-3" />
                       Admin

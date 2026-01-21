@@ -93,68 +93,68 @@ export function Rotina() {
     const points = template?.points || 10;
 
     updateState((prev) => ({
-      ...prev,
-      tasks: prev.tasks.map((t) =>
-        t.id === executingTask.id
-          ? {
-              ...t,
-              status: 'DONE' as TaskStatus,
-              evidenceUrl: evidenceLink,
-              notes,
-              stepsState,
-              completedAt: new Date().toISOString(),
-              pointsAwarded: points,
-            }
-          : t
-      ),
-      points: [
-        ...prev.points,
-        {
-          ownerId: executingTask.ownerId,
-          dateISO: executingTask.dateISO,
-          points: template?.pointsOnDone || 10,
-          reason: `Concluiu: ${executingTask.title}`,
-          source: 'TASK_DONE' as const,
-        },
-      ],
-    }));
+        ...prev,
+        tasks: prev.tasks.map((t) =>
+          t.id === executingTask.id
+            ? {
+                ...t,
+                status: 'DONE' as TaskStatus,
+                evidenceUrl: evidenceLink,
+                notes,
+                stepsState,
+                completedAt: new Date().toISOString(),
+                pointsAwarded: points,
+              }
+            : t
+        ),
+        points: [
+          ...prev.points,
+          {
+            ownerId: executingTask.ownerId,
+            dateISO: executingTask.dateISO,
+            points: template?.points || 10,
+            reason: `Concluiu: ${executingTask.title}`,
+            source: 'TASK_DONE' as const,
+          },
+        ],
+      }));
 
-    toast.success('Tarefa concluída! +' + (template?.pointsOnDone || 10) + ' pontos');
-    setExecutingTask(null);
-  };
+      toast.success('Tarefa concluída! +' + (template?.points || 10) + ' pontos');
+      setExecutingTask(null);
+    };
 
-  const handleSkip = () => {
-    if (!executingTask) return;
+    const handleSkip = () => {
+      if (!executingTask) return;
 
-    const template = state.templates.find((t) => t.id === executingTask.templateId);
+      const template = state.templates.find((t) => t.id === executingTask.templateId);
 
-    updateState((prev) => ({
-      ...prev,
-      tasks: prev.tasks.map((t) =>
-        t.id === executingTask.id
-          ? {
-              ...t,
-              status: 'SKIPPED' as TaskStatus,
-              notes,
-              completedAt: new Date().toISOString(),
-            }
-          : t
-      ),
-      points: [
-        ...prev.points,
-        {
-          ownerId: executingTask.ownerId,
-          dateISO: executingTask.dateISO,
-          points: template?.pointsOnSkip || -5,
-          reason: `Pulou: ${executingTask.title}`,
-          source: 'TASK_SKIPPED' as const,
-        },
-      ],
-    }));
+      updateState((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((t) =>
+          t.id === executingTask.id
+            ? {
+                ...t,
+                status: 'SKIPPED' as TaskStatus,
+                notes,
+                completedAt: new Date().toISOString(),
+              }
+            : t
+        ),
+        points: [
+          ...prev.points,
+          {
+            ownerId: executingTask.ownerId,
+            dateISO: executingTask.dateISO,
+            points: template?.penaltyPoints || -5,
+            reason: `Pulou: ${executingTask.title}`,
+            source: 'TASK_SKIPPED' as const,
+          },
+        ],
+      }));
 
-    toast.error('Tarefa pulada. ' + (template?.pointsOnSkip || -5) + ' pontos');
-    setExecutingTask(null);
-  };
+      toast.error('Tarefa pulada. ' + (template?.penaltyPoints || -5) + ' pontos');
+      setExecutingTask(null);
+    };
 
   const getStatusBadge = (status: TaskStatus) => {
     if (status === 'DONE') {
@@ -426,11 +426,11 @@ export function Rotina() {
             <div className="space-y-6 py-4">
               
               {/* SOP */}
-              {executingTask.descriptionMarkdown && (
+              {executingTask.description && (
                 <div className="space-y-2">
                   <Label className="text-base font-semibold">📋 SOP (Passo a Passo)</Label>
                   <div className="p-4 bg-muted rounded-lg">
-                    <pre className="whitespace-pre-wrap text-sm">{executingTask.descriptionMarkdown}</pre>
+                    <pre className="whitespace-pre-wrap text-sm">{executingTask.description}</pre>
                   </div>
                 </div>
               )}
@@ -469,7 +469,7 @@ export function Rotina() {
               )}
 
               {/* Evidência */}
-              {state.templates.find((t) => t.id === executingTask.templateId)?.evidenceRequired && (
+              {state.templates.find((t) => t.id === executingTask.templateId)?.requireEvidence && (
                 <div className="space-y-2">
                   <Label htmlFor="evidence" className="text-base font-semibold flex items-center gap-2">
                     <Shield className="h-4 w-4 text-red-600" />
@@ -504,10 +504,10 @@ export function Rotina() {
                 <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-900 dark:text-blue-100">
                   <strong>Concluir:</strong> Marca como DONE e registra pontos (+
-                  {state.templates.find((t) => t.id === executingTask.templateId)?.pointsOnDone || 10}).
+                  {state.templates.find((t) => t.id === executingTask.templateId)?.points || 10}).
                   <br />
                   <strong>Pular:</strong> Marca como SKIPPED e aplica penalidade (
-                  {state.templates.find((t) => t.id === executingTask.templateId)?.pointsOnSkip || -5} pontos).
+                  {state.templates.find((t) => t.id === executingTask.templateId)?.penaltyPoints || -5} pontos).
                 </p>
               </div>
             </div>

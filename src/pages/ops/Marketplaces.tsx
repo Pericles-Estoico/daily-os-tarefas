@@ -123,6 +123,7 @@ export function Marketplaces() {
     const marketplace: Marketplace = {
       id: formData.id!,
       name: formData.name!,
+      slug: formData.id!.toLowerCase().replace(/\s+/g, '_'),
       priority: formData.priority!,
       stage: formData.stage!,
       cadence: formData.cadence!,

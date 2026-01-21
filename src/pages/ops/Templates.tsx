@@ -65,17 +65,17 @@ export function Templates() {
     severity: 'NORMAL',
     daysOfWeek: [1, 2, 3, 4, 5], // Seg-Sex
     DoD: '',
-    critical: false,
-    evidenceRequired: false,
-    enabled: true,
-    descriptionMarkdown: '',
+    isCritical: false,
+    requireEvidence: false,
+    active: true,
+    description: '',
     steps: [],
     expectedMinutes: 30,
     toolsLinks: [],
     whenToOpenIncident: '',
     escalationRule: '',
-    pointsOnDone: 10,
-    pointsOnSkip: -5,
+    points: 10,
+    penaltyPoints: -5,
   });
 
   const handleCreate = () => {
@@ -90,17 +90,17 @@ export function Templates() {
       severity: 'NORMAL',
       daysOfWeek: [1, 2, 3, 4, 5],
       DoD: '',
-      critical: false,
-      evidenceRequired: false,
-      enabled: true,
-      descriptionMarkdown: '',
+      isCritical: false,
+      requireEvidence: false,
+      active: true,
+      description: '',
       steps: [],
       expectedMinutes: 30,
       toolsLinks: [],
       whenToOpenIncident: '',
       escalationRule: '',
-      pointsOnDone: 10,
-      pointsOnSkip: -5,
+      points: 10,
+      penaltyPoints: -5,
     });
     setDialogOpen(true);
   };
@@ -127,17 +127,17 @@ export function Templates() {
       severity: formData.severity!,
       daysOfWeek: formData.daysOfWeek!,
       DoD: formData.DoD!,
-      critical: formData.critical!,
-      evidenceRequired: formData.evidenceRequired!,
-      enabled: formData.enabled!,
-      descriptionMarkdown: formData.descriptionMarkdown || '',
+      isCritical: formData.isCritical!,
+      requireEvidence: formData.requireEvidence!,
+      active: formData.active!,
+      description: formData.description || '',
       steps: formData.steps || [],
       expectedMinutes: formData.expectedMinutes || 30,
       toolsLinks: formData.toolsLinks || [],
       whenToOpenIncident: formData.whenToOpenIncident || '',
       escalationRule: formData.escalationRule || '',
-      pointsOnDone: formData.pointsOnDone || 10,
-      pointsOnSkip: formData.pointsOnSkip || -5,
+      points: formData.points || 10,
+      penaltyPoints: formData.penaltyPoints || -5,
     };
 
     updateState((prev) => {
@@ -240,7 +240,7 @@ export function Templates() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Gerar tarefas para este mês?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Isso vai gerar tarefas a partir dos templates ativos ({state.templates.filter(t => t.enabled).length} templates).
+                    Isso vai gerar tarefas a partir dos templates ativos ({state.templates.filter(t => t.active).length} templates).
                     Tarefas já existentes não serão duplicadas (UPSERT).
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -264,7 +264,7 @@ export function Templates() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Gerar tarefas para o próximo mês?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Isso vai gerar tarefas do próximo mês a partir dos templates ativos ({state.templates.filter(t => t.enabled).length} templates).
+                    Isso vai gerar tarefas do próximo mês a partir dos templates ativos ({state.templates.filter(t => t.active).length} templates).
                     Ideal para planejar com antecedência.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -285,7 +285,7 @@ export function Templates() {
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>{state.templates.filter(t => t.enabled).length} ativos</span>
+              <span>{state.templates.filter(t => t.active).length} ativos</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-purple-600" />
@@ -317,7 +317,7 @@ export function Templates() {
             const owner = state.owners.find((o) => o.id === template.ownerId);
 
             return (
-              <Card key={template.id} className={`border-0 shadow-lg hover:shadow-xl transition-all ${!template.enabled ? 'opacity-50' : ''}`}>
+              <Card key={template.id} className={`border-0 shadow-lg hover:shadow-xl transition-all ${!template.active ? 'opacity-50' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
                     
@@ -347,13 +347,13 @@ export function Templates() {
                                 Crítica
                               </Badge>
                             )}
-                            {template.evidenceRequired && (
+                            {template.requireEvidence && (
                               <Badge variant="secondary" className="flex items-center gap-1">
                                 <Shield className="h-3 w-3" />
                                 Evidência
                               </Badge>
                             )}
-                            {!template.enabled && (
+                            {!template.active && (
                               <Badge variant="outline">Desativado</Badge>
                             )}
                           </div>
@@ -514,8 +514,8 @@ export function Templates() {
               <Textarea
                 id="sop"
                 placeholder="# O que fazer&#10;&#10;- Passo 1...&#10;- Passo 2..."
-                value={formData.descriptionMarkdown}
-                onChange={(e) => setFormData({ ...formData, descriptionMarkdown: e.target.value })}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={6}
               />
             </div>
@@ -542,16 +542,16 @@ export function Templates() {
                 <Label htmlFor="evidence">Exigir Evidência?</Label>
                 <Switch
                   id="evidence"
-                  checked={formData.evidenceRequired}
-                  onCheckedChange={(v) => setFormData({ ...formData, evidenceRequired: v })}
+                  checked={formData.requireEvidence}
+                  onCheckedChange={(v) => setFormData({ ...formData, requireEvidence: v })}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="enabled">Template Ativo?</Label>
+                <Label htmlFor="active">Template Ativo?</Label>
                 <Switch
-                  id="enabled"
-                  checked={formData.enabled}
-                  onCheckedChange={(v) => setFormData({ ...formData, enabled: v })}
+                  id="active"
+                  checked={formData.active}
+                  onCheckedChange={(v) => setFormData({ ...formData, active: v })}
                 />
               </div>
             </div>
@@ -563,8 +563,8 @@ export function Templates() {
                 <Input
                   id="pointsDone"
                   type="number"
-                  value={formData.pointsOnDone}
-                  onChange={(e) => setFormData({ ...formData, pointsOnDone: Number(e.target.value) })}
+                  value={formData.points}
+                  onChange={(e) => setFormData({ ...formData, points: Number(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">
@@ -572,8 +572,8 @@ export function Templates() {
                 <Input
                   id="pointsSkip"
                   type="number"
-                  value={formData.pointsOnSkip}
-                  onChange={(e) => setFormData({ ...formData, pointsOnSkip: Number(e.target.value) })}
+                  value={formData.penaltyPoints}
+                  onChange={(e) => setFormData({ ...formData, penaltyPoints: Number(e.target.value) })}
                 />
               </div>
             </div>
