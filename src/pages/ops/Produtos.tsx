@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProductsData';
 import { useProductImage } from '@/hooks/useProductImage';
+import { useProductMarketplaceHistory } from '@/hooks/useProductMarketplaces';
+import { useMarketplaces } from '@/hooks/useMarketplacesData';
 import type { ProductTypeStrategy } from '@/integrations/supabase/database.types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,11 +16,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProductImageUpload } from '@/components/products/ProductImageUpload';
+import { MarketplaceIcons } from '@/components/products/MarketplaceIcons';
 import { Plus, Pencil, Trash2, Package, Star, Search, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function Produtos() {
   const { data: products = [], isLoading } = useProducts();
+  const { data: marketplaces = [] } = useMarketplaces();
+  const { data: skuMarketplaces } = useProductMarketplaceHistory();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -509,7 +514,7 @@ export function Produtos() {
                 <TableRow>
                   <TableHead className="w-[60px]">Foto</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead>Nome</TableHead>
+                  <TableHead>Canais</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Estratégia</TableHead>
                   <TableHead>Campeão</TableHead>
@@ -517,53 +522,64 @@ export function Produtos() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product) => (
-                  <TableRow key={product.sku}>
-                    <TableCell>
-                      <div className="w-10 h-10 rounded-md border border-border overflow-hidden bg-muted flex items-center justify-center">
-                        {product.image_url ? (
-                          <img 
-                            src={product.image_url} 
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                {filteredProducts.map((product) => {
+                  const productMarketplaceIds = skuMarketplaces?.get(product.sku) 
+                    ? Array.from(skuMarketplaces.get(product.sku)!)
+                    : [];
+                  
+                  return (
+                    <TableRow key={product.sku}>
+                      <TableCell>
+                        <div className="w-10 h-10 rounded-md border border-border overflow-hidden bg-muted flex items-center justify-center">
+                          {product.image_url ? (
+                            <img 
+                              src={product.image_url} 
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono font-semibold">
+                        {product.sku}
+                      </TableCell>
+                      <TableCell>
+                        <MarketplaceIcons 
+                          marketplaceIds={productMarketplaceIds}
+                          marketplaces={marketplaces}
+                        />
+                      </TableCell>
+                      <TableCell>{product.category || '-'}</TableCell>
+                      <TableCell>{getStrategyBadge(product.type_strategy)}</TableCell>
+                      <TableCell>
+                        {product.is_champion && (
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono font-semibold">
-                      {product.sku}
-                    </TableCell>
-                    <TableCell>{product.name}</TableCell>
-                    <TableCell>{product.category || '-'}</TableCell>
-                    <TableCell>{getStrategyBadge(product.type_strategy)}</TableCell>
-                    <TableCell>
-                      {product.is_champion && (
-                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openEditDialog(product)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(product.sku)}
-                          disabled={deleteProduct.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditDialog(product)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDelete(product.sku)}
+                            disabled={deleteProduct.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
