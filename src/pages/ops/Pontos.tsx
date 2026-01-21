@@ -1,6 +1,4 @@
-import { useState, useMemo } from 'react';
-import { useOps } from '@/contexts/OpsContext';
-import { Points, PointSource } from '@/types/marketplace-ops';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +8,32 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trophy, Star, Award, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+  usePoints, 
+  useCreatePoint, 
+  usePointsRanking, 
+  usePointsMonths, 
+  useFilteredPoints,
+  POINTS_CONFIG,
+  type PointSource 
+} from '@/hooks/usePointsData';
+import { useOwners } from '@/hooks/useSupabaseData';
 
 export function Pontos() {
-  const { state, updateState } = useOps();
+  const { data: owners = [], isLoading: loadingOwners } = useOwners();
+  const { data: months = [] } = usePointsMonths();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filterOwnerId, setFilterOwnerId] = useState<string>('all');
   const [filterMonth, setFilterMonth] = useState<string>('all');
+
+  const { data: ranking = [], isLoading: loadingRanking } = usePointsRanking(filterMonth);
+  const { data: filteredPoints = [], isLoading: loadingPoints } = useFilteredPoints(filterOwnerId, filterMonth);
+  
+  const createPoint = useCreatePoint();
 
   // Form state
   const [formOwnerId, setFormOwnerId] = useState('');
@@ -26,47 +42,8 @@ export function Pontos() {
   const [formReason, setFormReason] = useState('');
   const [formSource, setFormSource] = useState<PointSource>('MANUAL');
 
-  // Get unique months from points
-  const months = useMemo(() => {
-    const monthSet = new Set(
-      state.points.map(p => p.dateISO.substring(0, 7))
-    );
-    return Array.from(monthSet).sort().reverse();
-  }, [state.points]);
-
-  // Filtered points
-  const filteredPoints = useMemo(() => {
-    return state.points.filter(point => {
-      const matchesOwner = filterOwnerId === 'all' || point.ownerId === filterOwnerId;
-      const matchesMonth = filterMonth === 'all' || point.dateISO.startsWith(filterMonth);
-      return matchesOwner && matchesMonth;
-    }).sort((a, b) => b.dateISO.localeCompare(a.dateISO));
-  }, [state.points, filterOwnerId, filterMonth]);
-
-  // Ranking
-  const ranking = useMemo(() => {
-    const pointsByOwner = new Map<string, number>();
-    
-    const pointsToCount = filterMonth === 'all' 
-      ? state.points 
-      : state.points.filter(p => p.dateISO.startsWith(filterMonth));
-    
-    pointsToCount.forEach(p => {
-      const current = pointsByOwner.get(p.ownerId) || 0;
-      pointsByOwner.set(p.ownerId, current + p.points);
-    });
-
-    return state.owners
-      .filter(o => o.active)
-      .map(owner => ({
-        owner,
-        points: pointsByOwner.get(owner.id) || 0,
-      }))
-      .sort((a, b) => b.points - a.points);
-  }, [state.points, state.owners, filterMonth]);
-
   const openCreateDialog = () => {
-    setFormOwnerId(state.settings.currentOwnerId);
+    setFormOwnerId(owners[0]?.id || '');
     setFormDateISO(new Date().toISOString().split('T')[0]);
     setFormPoints('');
     setFormReason('');
@@ -74,7 +51,7 @@ export function Pontos() {
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formOwnerId || !formDateISO || !formPoints.trim() || !formReason.trim()) {
       toast.error('Todos os campos são obrigatórios');
       return;
@@ -86,21 +63,20 @@ export function Pontos() {
       return;
     }
 
-    const pointData: Points = {
-      ownerId: formOwnerId,
-      dateISO: formDateISO,
-      points,
-      reason: formReason.trim(),
-      source: formSource,
-    };
-
-    updateState((prev) => ({
-      ...prev,
-      points: [...prev.points, pointData],
-    }));
-
-    toast.success('Pontos adicionados!');
-    setIsDialogOpen(false);
+    try {
+      await createPoint.mutateAsync({
+        owner_id: formOwnerId,
+        date_iso: formDateISO,
+        points,
+        reason: formReason.trim(),
+        source: formSource,
+      });
+      toast.success('Pontos adicionados!');
+      setIsDialogOpen(false);
+    } catch (error) {
+      toast.error('Erro ao adicionar pontos');
+      console.error(error);
+    }
   };
 
   const getSourceBadge = (source: PointSource) => {
@@ -120,6 +96,21 @@ export function Pontos() {
     if (position === 2) return <Award className="h-6 w-6 text-orange-600" />;
     return <span className="text-lg font-bold text-muted-foreground">#{position + 1}</span>;
   };
+
+  const isLoading = loadingOwners || loadingRanking || loadingPoints;
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Skeleton className="h-32" />
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -157,7 +148,7 @@ export function Pontos() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {state.owners.filter(o => o.active).map(owner => (
+                    {owners.map(owner => (
                       <SelectItem key={owner.id} value={owner.id}>
                         {owner.name}
                       </SelectItem>
@@ -218,13 +209,44 @@ export function Pontos() {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSave}>
+              <Button onClick={handleSave} disabled={createPoint.isPending}>
                 Adicionar
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Points Config Info */}
+      <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+        <CardHeader>
+          <CardTitle className="text-sm">Tabela de Pontuação Automática</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Tarefa Normal</p>
+              <p className="font-bold text-green-600">+{POINTS_CONFIG.TASK_DONE_NORMAL}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Tarefa Crítica</p>
+              <p className="font-bold text-green-600">+{POINTS_CONFIG.TASK_DONE_CRITICAL}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Tarefa Pulada</p>
+              <p className="font-bold text-red-600">{POINTS_CONFIG.TASK_SKIPPED}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Incidente Resolvido</p>
+              <p className="font-bold text-blue-600">+{POINTS_CONFIG.INCIDENT_RESOLVED}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Meta Diária</p>
+              <p className="font-bold text-purple-600">+{POINTS_CONFIG.DAILY_GOAL_MET}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -241,7 +263,7 @@ export function Pontos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  {state.owners.filter(o => o.active).map(owner => (
+                  {owners.map(owner => (
                     <SelectItem key={owner.id} value={owner.id}>
                       {owner.name}
                     </SelectItem>
@@ -289,26 +311,34 @@ export function Pontos() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {ranking.map((entry, index) => (
-              <div
-                key={entry.owner.id}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card"
-              >
-                <div className="flex items-center gap-3">
-                  {getMedalIcon(index)}
-                  <div>
-                    <p className="font-semibold">{entry.owner.name}</p>
-                    <p className="text-xs text-muted-foreground">{entry.owner.role}</p>
+          {ranking.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Trophy className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>Nenhum ponto registrado ainda</p>
+              <p className="text-sm mt-1">Os pontos serão adicionados automaticamente ao concluir tarefas!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {ranking.map((entry, index) => (
+                <div
+                  key={entry.owner.id}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                >
+                  <div className="flex items-center gap-3">
+                    {getMedalIcon(index)}
+                    <div>
+                      <p className="font-semibold">{entry.owner.name}</p>
+                      <p className="text-xs text-muted-foreground">{entry.owner.role}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                    <span className="text-2xl font-bold">{entry.points}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-                  <span className="text-2xl font-bold">{entry.points}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -335,12 +365,12 @@ export function Pontos() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredPoints.map((point, index) => {
-                  const owner = state.owners.find(o => o.id === point.ownerId);
+                {filteredPoints.map((point) => {
+                  const owner = owners.find(o => o.id === point.owner_id);
                   return (
-                    <TableRow key={index}>
+                    <TableRow key={point.id}>
                       <TableCell>
-                        {new Date(point.dateISO).toLocaleDateString('pt-BR')}
+                        {new Date(point.date_iso).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell>{owner?.name}</TableCell>
                       <TableCell>
