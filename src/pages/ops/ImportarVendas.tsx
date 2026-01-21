@@ -31,7 +31,7 @@ import {
   type ParsedDailySummaryRow,
   type ParsedSKUSaleRow
 } from '@/lib/xlsx-import';
-import { useActiveMarketplaces } from '@/hooks/useMarketplacesData';
+import { useMarketplaces } from '@/hooks/useMarketplacesData';
 import { useConsolidateSales } from '@/hooks/useSalesImport';
 import { useAppSettings } from '@/hooks/useSupabaseData';
 
@@ -57,7 +57,7 @@ interface LocalStaging {
 
 export function ImportarVendas() {
   // Supabase data
-  const { data: marketplaces = [], isLoading: loadingMarketplaces } = useActiveMarketplaces();
+  const { data: marketplaces = [], isLoading: loadingMarketplaces } = useMarketplaces();
   const { data: appSettings } = useAppSettings();
   const consolidateMutation = useConsolidateSales();
 
