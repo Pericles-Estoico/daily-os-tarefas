@@ -2,7 +2,7 @@
 // Hook para salvar KPIs e Vendas no Supabase
 // ============================================
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 interface KPIData {
@@ -106,6 +106,91 @@ export function useConsolidateSales() {
       queryClient.invalidateQueries({ queryKey: ['sales_by_sku'] });
       queryClient.invalidateQueries({ queryKey: ['today_kpis'] });
       queryClient.invalidateQueries({ queryKey: ['kpis_last_7_days'] });
+    },
+  });
+}
+
+// ============================================
+// Hook para buscar datas que possuem dados
+// ============================================
+export function useDatesWithData() {
+  return useQuery({
+    queryKey: ['dates_with_data'],
+    queryFn: async () => {
+      const { data: kpiDates, error } = await (supabase
+        .from('kpi_daily') as any)
+        .select('date_iso')
+        .order('date_iso', { ascending: false });
+
+      if (error) throw error;
+
+      // Retorna datas únicas
+      const uniqueDates = [...new Set(kpiDates?.map((k: any) => k.date_iso) || [])];
+      return uniqueDates as string[];
+    },
+  });
+}
+
+// ============================================
+// Hook para buscar contagem de dados por data
+// ============================================
+export function useDataCountByDate(dateISO: string | null) {
+  return useQuery({
+    queryKey: ['data_count_by_date', dateISO],
+    queryFn: async () => {
+      if (!dateISO) return { kpiCount: 0, salesCount: 0 };
+
+      const [kpiResult, salesResult] = await Promise.all([
+        (supabase.from('kpi_daily') as any)
+          .select('id', { count: 'exact', head: true })
+          .eq('date_iso', dateISO),
+        (supabase.from('sales_by_sku') as any)
+          .select('id', { count: 'exact', head: true })
+          .eq('date_start', dateISO),
+      ]);
+
+      return {
+        kpiCount: kpiResult.count || 0,
+        salesCount: salesResult.count || 0,
+      };
+    },
+    enabled: !!dateISO,
+  });
+}
+
+// ============================================
+// Hook para deletar dados de uma data específica
+// ============================================
+export function useDeleteDayData() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (dateISO: string) => {
+      // Deletar KPIs da data
+      const { error: kpiError } = await (supabase
+        .from('kpi_daily') as any)
+        .delete()
+        .eq('date_iso', dateISO);
+
+      if (kpiError) throw kpiError;
+
+      // Deletar vendas da data
+      const { error: salesError } = await (supabase
+        .from('sales_by_sku') as any)
+        .delete()
+        .eq('date_start', dateISO);
+
+      if (salesError) throw salesError;
+
+      return { dateISO };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kpi_daily'] });
+      queryClient.invalidateQueries({ queryKey: ['sales_by_sku'] });
+      queryClient.invalidateQueries({ queryKey: ['today_kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['kpis_last_7_days'] });
+      queryClient.invalidateQueries({ queryKey: ['dates_with_data'] });
+      queryClient.invalidateQueries({ queryKey: ['data_count_by_date'] });
     },
   });
 }

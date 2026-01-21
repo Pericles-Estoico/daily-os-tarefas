@@ -19,7 +19,8 @@ import {
   Calendar,
   Store,
   X,
-  Package
+  Package,
+  Database
 } from 'lucide-react';
 import { exportStateToJSON, clearState, importStateFromJSON } from '@/lib/storage';
 import { parseXLSXFile, importKPIsFromSheet, importSalesFromSheet, downloadTemplate, downloadSalesTemplate, downloadSummaryTemplate, type XLSXValidationError } from '@/lib/xlsx-import';
@@ -29,6 +30,141 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { KPIDaily, SalesBySKU, StagedDailySales } from '@/types/marketplace-ops';
+import { useDatesWithData, useDataCountByDate, useDeleteDayData } from '@/hooks/useSalesImport';
+
+// Componente para gerenciar dados por data
+function DataManagementSection() {
+  const [selectedDeleteDate, setSelectedDeleteDate] = useState<string>('');
+  const { data: datesWithData, isLoading: loadingDates } = useDatesWithData();
+  const { data: dataCount } = useDataCountByDate(selectedDeleteDate || null);
+  const deleteMutation = useDeleteDayData();
+
+  const handleDeleteData = () => {
+    if (!selectedDeleteDate) return;
+    
+    deleteMutation.mutate(selectedDeleteDate, {
+      onSuccess: () => {
+        toast.success(`✅ Dados de ${new Date(selectedDeleteDate).toLocaleDateString('pt-BR')} deletados com sucesso!`);
+        setSelectedDeleteDate('');
+      },
+      onError: (error: any) => {
+        toast.error(`Erro ao deletar: ${error.message}`);
+      },
+    });
+  };
+
+  return (
+    <Card className="border-2 border-red-200 shadow-lg bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950 dark:to-orange-950">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Database className="h-5 w-5 text-red-600" />
+          🗑️ Gerenciar Dados por Data
+        </CardTitle>
+        <CardDescription>
+          Selecione uma data para visualizar e deletar KPIs e vendas importadas
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Date Selector */}
+        <div>
+          <Label htmlFor="delete-date-select">Selecione a Data</Label>
+          <Select value={selectedDeleteDate} onValueChange={setSelectedDeleteDate}>
+            <SelectTrigger id="delete-date-select">
+              <SelectValue placeholder={loadingDates ? "Carregando..." : "Selecione uma data..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {datesWithData?.map((dateISO) => (
+                <SelectItem key={dateISO} value={dateISO}>
+                  {new Date(dateISO + 'T12:00:00').toLocaleDateString('pt-BR', { 
+                    weekday: 'short', 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric' 
+                  })}
+                </SelectItem>
+              ))}
+              {(!datesWithData || datesWithData.length === 0) && !loadingDates && (
+                <SelectItem value="_empty" disabled>
+                  Nenhuma data com dados encontrada
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Data Preview */}
+        {selectedDeleteDate && dataCount && (
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border">
+            <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Dados encontrados em {new Date(selectedDeleteDate + 'T12:00:00').toLocaleDateString('pt-BR')}:
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <p className="text-2xl font-bold text-blue-600">{dataCount.kpiCount}</p>
+                <p className="text-xs text-muted-foreground">KPIs (kpi_daily)</p>
+              </div>
+              <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">{dataCount.salesCount}</p>
+                <p className="text-xs text-muted-foreground">Vendas (sales_by_sku)</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Button with Confirmation */}
+        {selectedDeleteDate && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive" 
+                className="w-full"
+                disabled={deleteMutation.isPending || (!dataCount?.kpiCount && !dataCount?.salesCount)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleteMutation.isPending ? 'Deletando...' : 'Deletar Dados desta Data'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  Confirmar Exclusão
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Você está prestes a deletar permanentemente todos os dados de{' '}
+                  <strong>{new Date(selectedDeleteDate + 'T12:00:00').toLocaleDateString('pt-BR')}</strong>:
+                  <br /><br />
+                  • <strong>{dataCount?.kpiCount || 0}</strong> registros de KPIs<br />
+                  • <strong>{dataCount?.salesCount || 0}</strong> registros de vendas por SKU
+                  <br /><br />
+                  Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDeleteData}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Sim, Deletar Tudo
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {/* Info */}
+        {!selectedDeleteDate && (
+          <div className="p-3 bg-muted rounded-lg text-xs text-muted-foreground">
+            💡 Selecione uma data acima para ver quantos registros existem e poder deletá-los.
+            Útil quando você importou dados errados e precisa recomeçar.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function Configuracoes() {
   const { state, updateState, resetState } = useOps();
@@ -637,6 +773,9 @@ export function Configuracoes() {
           </CardContent>
         </Card>
       )}
+
+      {/* 🗑️ SEÇÃO 4: Gerenciar Dados por Data */}
+      <DataManagementSection />
 
       {/* Usuário Atual - Sistema de Acesso */}
       <Card className="border-2 border-blue-200 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
