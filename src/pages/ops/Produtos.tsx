@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProductsData';
+import { useProductImage } from '@/hooks/useProductImage';
 import type { ProductTypeStrategy } from '@/integrations/supabase/database.types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Pencil, Trash2, Package, Star, Search } from 'lucide-react';
+import { ProductImageUpload } from '@/components/products/ProductImageUpload';
+import { Plus, Pencil, Trash2, Package, Star, Search, ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function Produtos() {
@@ -20,6 +22,7 @@ export function Produtos() {
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
+  const { uploadImage, deleteImage } = useProductImage();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -36,6 +39,10 @@ export function Produtos() {
   const [formTypeStrategy, setFormTypeStrategy] = useState<ProductTypeStrategy>('SINGLE');
   const [formIsChampion, setFormIsChampion] = useState(false);
   const [formNotes, setFormNotes] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState<string | null>(null);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [shouldRemoveImage, setShouldRemoveImage] = useState(false);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -72,14 +79,21 @@ export function Produtos() {
     };
   }, [products]);
 
-  const openCreateDialog = () => {
-    setEditingProduct(null);
+  const resetForm = () => {
     setFormSku('');
     setFormName('');
     setFormCategory('');
     setFormTypeStrategy('SINGLE');
     setFormIsChampion(false);
     setFormNotes('');
+    setFormImageUrl(null);
+    setPendingImageFile(null);
+    setShouldRemoveImage(false);
+  };
+
+  const openCreateDialog = () => {
+    setEditingProduct(null);
+    resetForm();
     setIsDialogOpen(true);
   };
 
@@ -91,6 +105,9 @@ export function Produtos() {
     setFormTypeStrategy(product.type_strategy);
     setFormIsChampion(product.is_champion);
     setFormNotes(product.notes || '');
+    setFormImageUrl(product.image_url || null);
+    setPendingImageFile(null);
+    setShouldRemoveImage(false);
     setIsDialogOpen(true);
   };
 
@@ -101,6 +118,8 @@ export function Produtos() {
     }
 
     try {
+      let savedSku = formSku.trim();
+
       if (editingProduct) {
         await updateProduct.mutateAsync({
           sku: editingProduct.sku,
@@ -112,7 +131,7 @@ export function Produtos() {
             notes: formNotes.trim() || null,
           },
         });
-        toast.success('Produto atualizado com sucesso!');
+        savedSku = editingProduct.sku;
       } else {
         // Check if SKU already exists
         if (products.some(p => p.sku === formSku.trim())) {
@@ -127,9 +146,31 @@ export function Produtos() {
           is_champion: formIsChampion,
           notes: formNotes.trim() || null,
         });
-        toast.success('Produto criado com sucesso!');
       }
+
+      // Handle image upload/removal after product is saved
+      if (shouldRemoveImage && editingProduct?.image_url) {
+        setIsUploadingImage(true);
+        try {
+          await deleteImage(savedSku);
+        } catch (err) {
+          console.error('Error removing image:', err);
+        }
+        setIsUploadingImage(false);
+      } else if (pendingImageFile) {
+        setIsUploadingImage(true);
+        try {
+          await uploadImage(savedSku, pendingImageFile);
+        } catch (err) {
+          console.error('Error uploading image:', err);
+          toast.error('Produto salvo, mas erro ao fazer upload da imagem');
+        }
+        setIsUploadingImage(false);
+      }
+
+      toast.success(editingProduct ? 'Produto atualizado com sucesso!' : 'Produto criado com sucesso!');
       setIsDialogOpen(false);
+      resetForm();
     } catch (error) {
       toast.error('Erro ao salvar produto');
       console.error(error);
@@ -140,11 +181,29 @@ export function Produtos() {
     if (!confirm('Tem certeza que deseja excluir este produto?')) return;
     
     try {
+      // Find product to check for image
+      const product = products.find(p => p.sku === sku);
+      if (product?.image_url) {
+        await deleteImage(sku);
+      }
       await deleteProduct.mutateAsync(sku);
       toast.success('Produto excluído com sucesso!');
     } catch (error) {
       toast.error('Erro ao excluir produto');
       console.error(error);
+    }
+  };
+
+  const handleFileSelected = (file: File) => {
+    setPendingImageFile(file);
+    setShouldRemoveImage(false);
+  };
+
+  const handleImageRemoved = () => {
+    setPendingImageFile(null);
+    if (editingProduct?.image_url) {
+      setShouldRemoveImage(true);
+      setFormImageUrl(null);
     }
   };
 
@@ -208,6 +267,16 @@ export function Produtos() {
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* Image Upload - Only for editing (SKU must exist first) */}
+              {editingProduct && (
+                <ProductImageUpload
+                  currentImageUrl={shouldRemoveImage ? null : formImageUrl}
+                  onFileSelected={handleFileSelected}
+                  onImageRemoved={handleImageRemoved}
+                  isUploading={isUploadingImage}
+                />
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="sku">SKU *</Label>
@@ -277,6 +346,13 @@ export function Produtos() {
                   rows={3}
                 />
               </div>
+
+              {/* Note for new products */}
+              {!editingProduct && (
+                <p className="text-xs text-muted-foreground">
+                  💡 A foto do produto pode ser adicionada após criar o produto.
+                </p>
+              )}
             </div>
 
             <DialogFooter>
@@ -285,9 +361,11 @@ export function Produtos() {
               </Button>
               <Button 
                 onClick={handleSave}
-                disabled={createProduct.isPending || updateProduct.isPending}
+                disabled={createProduct.isPending || updateProduct.isPending || isUploadingImage}
               >
-                {createProduct.isPending || updateProduct.isPending ? 'Salvando...' : editingProduct ? 'Salvar' : 'Criar'}
+                {createProduct.isPending || updateProduct.isPending || isUploadingImage 
+                  ? 'Salvando...' 
+                  : editingProduct ? 'Salvar' : 'Criar'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -421,6 +499,7 @@ export function Produtos() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[60px]">Foto</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
@@ -432,6 +511,19 @@ export function Produtos() {
               <TableBody>
                 {filteredProducts.map((product) => (
                   <TableRow key={product.sku}>
+                    <TableCell>
+                      <div className="w-10 h-10 rounded-md border border-border overflow-hidden bg-muted flex items-center justify-center">
+                        {product.image_url ? (
+                          <img 
+                            src={product.image_url} 
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="font-mono font-semibold">
                       {product.sku}
                     </TableCell>

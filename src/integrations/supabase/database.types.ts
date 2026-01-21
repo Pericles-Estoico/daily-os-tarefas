@@ -72,6 +72,7 @@ export interface Product {
   type_strategy: ProductTypeStrategy;
   is_champion: boolean;
   notes: string | null;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }
