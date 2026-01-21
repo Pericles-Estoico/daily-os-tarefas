@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Upload,
   CheckCircle2,
@@ -73,6 +74,9 @@ export function ImportarVendas() {
     salesByMarketplace: new Map()
   });
 
+  // Mapeamentos manuais: lojaName -> marketplaceId (ou null para ignorar)
+  const [manualMappings, setManualMappings] = useState<Map<string, string | null>>(new Map());
+
   // Refs para inputs de arquivo
   const summaryInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,27 +92,72 @@ export function ImportarVendas() {
 
   const dailyGoal = appSettings?.daily_goal || 10000;
 
-  // Marketplaces identificados no resumo
+  // Handler para mapeamento manual
+  const handleManualMapping = (lojaName: string, value: string) => {
+    setManualMappings(prev => {
+      const newMap = new Map(prev);
+      if (value === 'ignore') {
+        newMap.set(lojaName, null); // Ignorar esta loja
+      } else if (value === '__clear__') {
+        newMap.delete(lojaName);
+      } else {
+        newMap.set(lojaName, value);
+      }
+      return newMap;
+    });
+  };
+
+  // Marketplaces identificados no resumo (automático + manual)
   const marketplacesFromSummary = useMemo(() => {
     if (!staging.summary) return [];
     return staging.summary.rows
-      .filter(r => r.marketplaceId)
-      .map(r => ({
-        id: r.marketplaceId!,
-        name: marketplaces.find(m => m.id === r.marketplaceId)?.name || r.lojaName,
-        lojaName: r.lojaName,
-        valor: r.valor,
-        pedidos: r.pedidos,
-        hasSKU: staging.salesByMarketplace.has(r.marketplaceId!),
-        skuCount: staging.salesByMarketplace.get(r.marketplaceId!)?.rows.length || 0
-      }));
-  }, [staging, marketplaces]);
+      .map(r => {
+        // Prioriza mapeamento manual sobre automático
+        const manualMapping = manualMappings.get(r.lojaName);
+        const isIgnored = manualMappings.has(r.lojaName) && manualMapping === null;
+        const marketplaceId = manualMapping || r.marketplaceId;
+        
+        if (isIgnored || !marketplaceId) return null;
+        
+        return {
+          id: marketplaceId,
+          name: marketplaces.find(m => m.id === marketplaceId)?.name || r.lojaName,
+          lojaName: r.lojaName,
+          valor: r.valor,
+          pedidos: r.pedidos,
+          hasSKU: staging.salesByMarketplace.has(marketplaceId),
+          skuCount: staging.salesByMarketplace.get(marketplaceId)?.rows.length || 0
+        };
+      })
+      .filter(Boolean) as Array<{
+        id: string;
+        name: string;
+        lojaName: string;
+        valor: number;
+        pedidos: number;
+        hasSKU: boolean;
+        skuCount: number;
+      }>;
+  }, [staging, marketplaces, manualMappings]);
 
-  // Lojas não mapeadas
+  // Lojas não mapeadas (sem auto-match e sem mapeamento manual)
   const unmappedLojas = useMemo(() => {
     if (!staging.summary) return [];
-    return staging.summary.rows.filter(r => !r.marketplaceId);
-  }, [staging]);
+    return staging.summary.rows.filter(r => {
+      const hasAutoMatch = !!r.marketplaceId;
+      const hasManualMapping = manualMappings.has(r.lojaName);
+      return !hasAutoMatch && !hasManualMapping;
+    });
+  }, [staging, manualMappings]);
+
+  // Lojas ignoradas manualmente
+  const ignoredLojas = useMemo(() => {
+    if (!staging.summary) return [];
+    return staging.summary.rows.filter(r => {
+      const manualMapping = manualMappings.get(r.lojaName);
+      return manualMappings.has(r.lojaName) && manualMapping === null;
+    });
+  }, [staging, manualMappings]);
 
   // Total GMV do staging
   const stagingTotalGMV = useMemo(() => {
@@ -255,6 +304,7 @@ export function ImportarVendas() {
       summary: null,
       salesByMarketplace: new Map()
     });
+    setManualMappings(new Map());
     toast.info('Staging limpo');
   };
 
@@ -443,23 +493,72 @@ export function ImportarVendas() {
                     </Button>
                   </div>
 
-                  {/* Lojas não mapeadas */}
+                  {/* Lojas não mapeadas - com dropdown para mapeamento manual */}
                   {unmappedLojas.length > 0 && (
-                    <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-5 w-5 text-destructive" />
-                        <span className="font-semibold text-destructive">
-                          {unmappedLojas.length} lojas não mapeadas
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-600" />
+                        <span className="font-semibold text-amber-800 dark:text-amber-200">
+                          {unmappedLojas.length} lojas precisam de mapeamento manual
                         </span>
                       </div>
-                      <ul className="text-sm text-muted-foreground space-y-1">
+                      
+                      <div className="space-y-3">
                         {unmappedLojas.map((loja, i) => (
-                          <li key={i}>• "{loja.lojaName}" - R$ {loja.valor.toLocaleString('pt-BR')}</li>
+                          <div key={i} className="flex items-center justify-between gap-4 p-3 bg-background rounded border">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">"{loja.lojaName}"</p>
+                              <p className="text-sm text-muted-foreground">
+                                R$ {loja.valor.toLocaleString('pt-BR')} • {loja.pedidos} pedidos
+                              </p>
+                            </div>
+                            
+                            <Select
+                              value=""
+                              onValueChange={(value) => handleManualMapping(loja.lojaName, value)}
+                            >
+                              <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Selecione..." />
+                              </SelectTrigger>
+                              <SelectContent className="bg-popover">
+                                {marketplaces.map((mp) => (
+                                  <SelectItem key={mp.id} value={mp.id}>
+                                    {mp.name}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="ignore" className="text-muted-foreground">
+                                  (Ignorar esta loja)
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         ))}
-                      </ul>
-                      <p className="text-xs mt-2 text-muted-foreground">
-                        Cadastre esses marketplaces em Configurações ou corrija os nomes na planilha.
-                      </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lojas ignoradas */}
+                  {ignoredLojas.length > 0 && (
+                    <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm text-muted-foreground">
+                          {ignoredLojas.length} lojas ignoradas
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {ignoredLojas.map((loja, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">"{loja.lojaName}" - R$ {loja.valor.toLocaleString('pt-BR')}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleManualMapping(loja.lojaName, '__clear__')}
+                            >
+                              Desfazer
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
