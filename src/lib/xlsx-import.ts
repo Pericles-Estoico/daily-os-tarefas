@@ -25,6 +25,26 @@ function normalizeString(str: string): string {
 }
 
 /**
+ * Detecta e pula linha de header do Bling ERP
+ * Ex: "(+99) Meu Negócio - Bling" ou similar
+ */
+function skipBlingHeader(data: any[][]): any[][] {
+  if (data.length > 0) {
+    const firstCell = String(data[0][0] || '').toLowerCase();
+    // Detecta padrões comuns do header do Bling
+    if (
+      firstCell.includes('bling') ||
+      firstCell.includes('meu negócio') ||
+      firstCell.includes('meu negocio') ||
+      firstCell.match(/^\(\+?\d+\)/) // Padrão "(+99)" no início
+    ) {
+      return data.slice(1); // Remove primeira linha
+    }
+  }
+  return data;
+}
+
+/**
  * Encontra índice de coluna de forma flexível (ignora case e acentos)
  */
 function findColumnIndex(headers: string[], ...searchTerms: string[]): number {
@@ -169,7 +189,9 @@ export interface ParsedDailySummaryRow {
 
 /**
  * Parse do arquivo de Resumo do Dia (Total)
- * Colunas: Loja, Pedidos, Ticket Médio, Quantidade, Valor, Valor Peça
+ * Suporta arquivos brutos do Bling ERP (ignora colunas de custo/impostos automaticamente)
+ * Colunas aceitas: Loja, Pedidos, Ticket Médio, Quantidade, Valor, Valor Peça
+ * Colunas ignoradas: Custo, Frete, Markup, Impostos, Taxas, % Contribuição, $ Contribuição
  */
 export function parseDailySummarySheet(
   data: any[][],
@@ -178,13 +200,17 @@ export function parseDailySummarySheet(
   const rows: ParsedDailySummaryRow[] = [];
   const errors: XLSXValidationError[] = [];
   
-  if (data.length < 2) {
+  // Pular header do Bling se existir
+  const cleanData = skipBlingHeader(data);
+  
+  if (cleanData.length < 2) {
     errors.push({ row: 0, column: 'header', error: 'Arquivo vazio ou sem dados' });
     return { rows, errors };
   }
   
-  const headers = data[0].map(h => String(h || ''));
+  const headers = cleanData[0].map(h => String(h || ''));
   
+  // Mapear APENAS as colunas que queremos (ignora custo, frete, markup, impostos, taxas, contribuição)
   const colMap = {
     loja: findColumnIndex(headers, 'loja', 'marketplace', 'mercado'),
     pedidos: findColumnIndex(headers, 'pedidos', 'orders', 'pedido'),
@@ -204,8 +230,8 @@ export function parseDailySummarySheet(
     return { rows, errors };
   }
   
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
+  for (let i = 1; i < cleanData.length; i++) {
+    const row = cleanData[i];
     if (!row || row.length === 0) continue;
     
     const lojaName = String(row[colMap.loja] || '').trim();
@@ -241,7 +267,9 @@ export interface ParsedSKUSaleRow {
 
 /**
  * Parse do arquivo de Vendas por SKU
- * Colunas: Código, Quantidade, Valor
+ * Suporta arquivos brutos do Bling ERP (ignora colunas de descrição/custo/markup automaticamente)
+ * Colunas aceitas: Código, Quantidade, Valor
+ * Colunas ignoradas: Descrição, Custo, Markup
  */
 export function parseSKUSalesSheet(
   data: any[][]
@@ -249,13 +277,17 @@ export function parseSKUSalesSheet(
   const rows: ParsedSKUSaleRow[] = [];
   const errors: XLSXValidationError[] = [];
   
-  if (data.length < 2) {
+  // Pular header do Bling se existir
+  const cleanData = skipBlingHeader(data);
+  
+  if (cleanData.length < 2) {
     errors.push({ row: 0, column: 'header', error: 'Arquivo vazio ou sem dados' });
     return { rows, errors };
   }
   
-  const headers = data[0].map(h => String(h || ''));
+  const headers = cleanData[0].map(h => String(h || ''));
   
+  // Mapear APENAS as colunas que queremos (ignora descrição, custo, markup)
   const colMap = {
     codigo: findColumnIndex(headers, 'codigo', 'código', 'sku', 'cod', 'produto'),
     quantidade: findColumnIndex(headers, 'quantidade', 'qtd', 'qtde', 'qty'),
@@ -277,8 +309,8 @@ export function parseSKUSalesSheet(
     return { rows, errors };
   }
   
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
+  for (let i = 1; i < cleanData.length; i++) {
+    const row = cleanData[i];
     if (!row || row.length === 0) continue;
     
     const sku = String(row[colMap.codigo] || '').trim();
