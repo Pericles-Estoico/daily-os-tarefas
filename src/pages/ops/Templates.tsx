@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useOps } from '@/contexts/OpsContext';
+import { useMarketplaces } from '@/hooks/useMarketplacesData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +53,7 @@ const SEVERITY_OPTIONS: { value: TaskSeverity; label: string }[] = [
 
 export function Templates() {
   const { state, updateState } = useOps();
+  const { data: marketplaces = [] } = useMarketplaces();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -313,7 +315,7 @@ export function Templates() {
       ) : (
         <div className="space-y-3">
           {state.templates.map((template) => {
-            const marketplace = state.marketplaces.find((m) => m.id === template.marketplaceId);
+            const marketplace = marketplaces.find((m) => m.id === template.marketplaceId);
             const owner = state.owners.find((o) => o.id === template.ownerId);
 
             return (
@@ -432,9 +434,9 @@ export function Templates() {
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover">
                       <SelectItem value="global">Global (Todos)</SelectItem>
-                      {state.marketplaces.map((m) => (
+                      {marketplaces.map((m) => (
                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                       ))}
                     </SelectContent>
