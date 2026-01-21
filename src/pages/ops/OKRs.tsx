@@ -26,6 +26,13 @@ import {
   type KeyResult 
 } from '@/hooks/useOKRsData';
 import { useOwners } from '@/hooks/useSupabaseData';
+import { useOKRProportionalProgress } from '@/hooks/useOKRProportionalProgress';
+import { OKRProgressCard } from '@/components/okrs/OKRProgressCard';
+import { InsightsPanel } from '@/components/okrs/InsightsPanel';
+import { StrategicChat } from '@/components/okrs/StrategicChat';
+
+// Meta mensal configurável
+const TARGET_MONTHLY = 300000;
 
 export function OKRs() {
   const { data: objectives = [], isLoading: loadingObjectives } = useObjectives();
@@ -33,6 +40,7 @@ export function OKRs() {
   const { data: owners = [] } = useOwners();
   const { data: kpiSummary } = useMonthlyKPISummary(2026, 1);
   const { data: p1Count = 0 } = useActiveMarketplacesP1Count();
+  const { data: proportionalProgress, isLoading: loadingProgress } = useOKRProportionalProgress(TARGET_MONTHLY, 2026, 1);
   
   const createObjective = useCreateObjective();
   const updateObjective = useUpdateObjective();
@@ -59,6 +67,10 @@ export function OKRs() {
   const [krBaseline, setKrBaseline] = useState('');
   const [krTarget, setKrTarget] = useState('');
   const [krCurrent, setKrCurrent] = useState('');
+
+  // Datas para insights
+  const startDate = '2026-01-01';
+  const endDate = '2026-01-31';
 
   // Get objectives with their key results
   const objectivesWithKRs = useMemo(() => {
@@ -265,7 +277,7 @@ export function OKRs() {
     return new Intl.NumberFormat('pt-BR').format(num);
   };
 
-  const isLoading = loadingObjectives || loadingKRs;
+  const isLoading = loadingObjectives || loadingKRs || loadingProgress;
 
   if (isLoading) {
     return (
@@ -274,8 +286,10 @@ export function OKRs() {
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-10 w-32" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
+        <Skeleton className="h-48" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
         </div>
         <Skeleton className="h-64" />
       </div>
@@ -285,94 +299,108 @@ export function OKRs() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
             <Target className="h-8 w-8" />
             OKRs
           </h1>
           <p className="text-muted-foreground mt-1">
-            Objectives and Key Results
+            Objectives and Key Results - Meta Janeiro 2026
           </p>
         </div>
-        <Dialog open={isObjectiveDialogOpen} onOpenChange={setIsObjectiveDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateObjectiveDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Objetivo
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingObjective ? 'Editar Objetivo' : 'Novo Objetivo'}
-              </DialogTitle>
-              <DialogDescription>
-                Defina um objetivo estratégico
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex gap-2">
+          <StrategicChat targetMonthly={TARGET_MONTHLY} />
+          <Dialog open={isObjectiveDialogOpen} onOpenChange={setIsObjectiveDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateObjectiveDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Objetivo
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingObjective ? 'Editar Objetivo' : 'Novo Objetivo'}
+                </DialogTitle>
+                <DialogDescription>
+                  Defina um objetivo estratégico
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="objTitle">Título *</Label>
-                <Input
-                  id="objTitle"
-                  value={objTitle}
-                  onChange={(e) => setObjTitle(e.target.value)}
-                  placeholder="Ex: Aumentar vendas no marketplace X"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
-                  <Label htmlFor="objOwner">Responsável</Label>
-                  <Select value={objOwnerId} onValueChange={setObjOwnerId}>
-                    <SelectTrigger id="objOwner">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {owners.map(owner => (
-                        <SelectItem key={owner.id} value={owner.id}>
-                          {owner.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="objDueDate">Data Limite</Label>
+                  <Label htmlFor="objTitle">Título *</Label>
                   <Input
-                    id="objDueDate"
-                    type="date"
-                    value={objDueDate}
-                    onChange={(e) => setObjDueDate(e.target.value)}
+                    id="objTitle"
+                    value={objTitle}
+                    onChange={(e) => setObjTitle(e.target.value)}
+                    placeholder="Ex: Faturar R$ 300.000 em Janeiro 2026"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="objOwner">Responsável</Label>
+                    <Select value={objOwnerId} onValueChange={setObjOwnerId}>
+                      <SelectTrigger id="objOwner">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {owners.map(owner => (
+                          <SelectItem key={owner.id} value={owner.id}>
+                            {owner.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="objDueDate">Data Limite</Label>
+                    <Input
+                      id="objDueDate"
+                      type="date"
+                      value={objDueDate}
+                      onChange={(e) => setObjDueDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="objDescription">Descrição</Label>
+                  <Textarea
+                    id="objDescription"
+                    value={objDescription}
+                    onChange={(e) => setObjDescription(e.target.value)}
+                    placeholder="Descreva o objetivo..."
+                    rows={3}
                   />
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="objDescription">Descrição</Label>
-                <Textarea
-                  id="objDescription"
-                  value={objDescription}
-                  onChange={(e) => setObjDescription(e.target.value)}
-                  placeholder="Descreva o objetivo..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsObjectiveDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveObjective} disabled={createObjective.isPending || updateObjective.isPending}>
-                {editingObjective ? 'Salvar' : 'Criar'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsObjectiveDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveObjective} disabled={createObjective.isPending || updateObjective.isPending}>
+                  {editingObjective ? 'Salvar' : 'Criar'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Main Progress Card with Farol */}
+      {proportionalProgress && (
+        <OKRProgressCard 
+          progress={proportionalProgress} 
+          title="Meta Janeiro 2026"
+        />
+      )}
+
+      {/* Insights Panel */}
+      <InsightsPanel startDate={startDate} endDate={endDate} />
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -425,7 +453,7 @@ export function OKRs() {
               Resumo Janeiro 2026 (Auto-calculado)
             </CardTitle>
             <CardDescription>
-              Dados do Supabase para atualizar KRs automaticamente
+              Dados do banco para atualizar KRs automaticamente
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -462,7 +490,7 @@ export function OKRs() {
             <CardContent className="text-center py-12 text-muted-foreground">
               <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p>Nenhum objetivo cadastrado</p>
-              <p className="text-sm mt-2">Crie o objetivo "Faturar R$ 10.000 em Janeiro 2026" para começar!</p>
+              <p className="text-sm mt-2">Crie o objetivo "Faturar R$ 300.000 em Janeiro 2026" para começar!</p>
             </CardContent>
           </Card>
         ) : (
@@ -653,7 +681,7 @@ export function OKRs() {
                   type="number"
                   value={krTarget}
                   onChange={(e) => setKrTarget(e.target.value)}
-                  placeholder="10000"
+                  placeholder="300000"
                 />
               </div>
               <div>
