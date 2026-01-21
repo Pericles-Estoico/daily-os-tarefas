@@ -36,7 +36,36 @@ export function useConsolidateSales() {
 
   return useMutation({
     mutationFn: async ({ kpis, sales, dateISO }: ConsolidatePayload) => {
-      // 1. Deletar KPIs existentes para esta data
+      // 1. Auto-cadastro de SKUs faltantes (evita erro de foreign key)
+      if (sales.length > 0) {
+        const uniqueSkus = [...new Set(sales.map(s => s.sku))];
+
+        const { data: existingProducts } = await (supabase
+          .from('products') as any)
+          .select('sku')
+          .in('sku', uniqueSkus);
+
+        const existingSkuSet = new Set(existingProducts?.map((p: any) => p.sku) || []);
+        const newSkus = uniqueSkus.filter(sku => !existingSkuSet.has(sku));
+
+        if (newSkus.length > 0) {
+          const { error: productError } = await (supabase
+            .from('products') as any)
+            .insert(
+              newSkus.map(sku => ({
+                sku,
+                name: sku,
+                category: 'Importado Automaticamente',
+                type_strategy: 'SINGLE',
+                is_champion: false
+              }))
+            );
+
+          if (productError) throw productError;
+        }
+      }
+
+      // 2. Deletar KPIs existentes para esta data
       const deleteKpiResult = await (supabase
         .from('kpi_daily') as any)
         .delete()
@@ -44,7 +73,7 @@ export function useConsolidateSales() {
       
       if (deleteKpiResult.error) throw deleteKpiResult.error;
 
-      // 2. Deletar vendas existentes para esta data
+      // 3. Deletar vendas existentes para esta data
       const deleteSalesResult = await (supabase
         .from('sales_by_sku') as any)
         .delete()
@@ -52,7 +81,7 @@ export function useConsolidateSales() {
       
       if (deleteSalesResult.error) throw deleteSalesResult.error;
 
-      // 3. Inserir novos KPIs
+      // 4. Inserir novos KPIs
       if (kpis.length > 0) {
         const insertKpiResult = await (supabase
           .from('kpi_daily') as any)
@@ -61,7 +90,7 @@ export function useConsolidateSales() {
         if (insertKpiResult.error) throw insertKpiResult.error;
       }
 
-      // 4. Inserir novas vendas
+      // 5. Inserir novas vendas
       if (sales.length > 0) {
         const insertSalesResult = await (supabase
           .from('sales_by_sku') as any)
