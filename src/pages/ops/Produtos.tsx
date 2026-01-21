@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, Product } from '@/hooks/useProductsData';
 import { useProductImage } from '@/hooks/useProductImage';
 import { useProductMarketplaceHistory } from '@/hooks/useProductMarketplaces';
+import { useProductSalesTotals } from '@/hooks/useProductSalesTotals';
 import { useMarketplaces } from '@/hooks/useMarketplacesData';
 import type { ProductTypeStrategy } from '@/integrations/supabase/database.types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,13 +18,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ProductImageUpload } from '@/components/products/ProductImageUpload';
 import { MarketplaceIcons } from '@/components/products/MarketplaceIcons';
-import { Plus, Pencil, Trash2, Package, Star, Search, ImageIcon } from 'lucide-react';
+import { exportProductsToExcel, exportProductsToPDF } from '@/lib/product-export';
+import { Plus, Pencil, Trash2, Package, Star, Search, ImageIcon, FileText, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function Produtos() {
   const { data: products = [], isLoading } = useProducts();
   const { data: marketplaces = [] } = useMarketplaces();
   const { data: skuMarketplaces } = useProductMarketplaceHistory();
+  const { data: skuSalesTotals } = useProductSalesTotals();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -262,14 +265,41 @@ export function Produtos() {
             Gerencie o catálogo de produtos (SKUs)
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Produto
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => exportProductsToPDF({
+              products: filteredProducts,
+              skuTotals: skuSalesTotals || new Map(),
+              marketplaces,
+              skuMarketplaces: skuMarketplaces ? new Map(Array.from(skuMarketplaces.entries()).map(([k, v]) => [k, Array.from(v)])) : new Map(),
+            })}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            PDF
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => exportProductsToExcel({
+              products: filteredProducts,
+              skuTotals: skuSalesTotals || new Map(),
+              marketplaces,
+              skuMarketplaces: skuMarketplaces ? new Map(Array.from(skuMarketplaces.entries()).map(([k, v]) => [k, Array.from(v)])) : new Map(),
+            })}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Excel
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Produto
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {editingProduct ? 'Editar Produto' : 'Novo Produto'}
@@ -383,6 +413,7 @@ export function Produtos() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats */}
@@ -515,6 +546,7 @@ export function Produtos() {
                   <TableHead className="w-[60px]">Foto</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Canais</TableHead>
+                  <TableHead className="text-center w-[80px]">Qtd</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Estratégia</TableHead>
                   <TableHead>Campeão</TableHead>
@@ -550,6 +582,9 @@ export function Produtos() {
                           marketplaceIds={productMarketplaceIds}
                           marketplaces={marketplaces}
                         />
+                      </TableCell>
+                      <TableCell className="text-center font-semibold">
+                        {(skuSalesTotals?.get(product.sku) || 0).toLocaleString('pt-BR')}
                       </TableCell>
                       <TableCell>{product.category || '-'}</TableCell>
                       <TableCell>{getStrategyBadge(product.type_strategy)}</TableCell>
