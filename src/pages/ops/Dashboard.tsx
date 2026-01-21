@@ -38,6 +38,7 @@ import {
   useAppSettings,
   useLatestDataDate,
 } from '@/hooks/useSupabaseData';
+import { useMonthlyGMV } from '@/hooks/useMonthlyGMV';
 
 export function Dashboard() {
   const { state } = useOps();
@@ -79,12 +80,23 @@ export function Dashboard() {
   const { data: owners } = useOwners();
   const { data: appSettings } = useAppSettings();
 
+  // Monthly GMV (always current month)
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const { data: monthlyGMV = 0, isLoading: loadingMonthlyGMV } = useMonthlyGMV(currentYear, currentMonth);
+
   // Calculate real KPIs
   const todayGMV = todayKPIs?.reduce((sum, kpi) => sum + Number(kpi.gmv), 0) || 0;
   const todayOrders = todayKPIs?.reduce((sum, kpi) => sum + kpi.orders, 0) || 0;
   const avgTicket = todayOrders > 0 ? todayGMV / todayOrders : 0;
+  
+  // Goals
   const dailyGoal = appSettings?.daily_goal ? Number(appSettings.daily_goal) : 10000;
-  const goalProgress = dailyGoal > 0 ? Math.min(100, (todayGMV / dailyGoal) * 100) : 0;
+  const monthlyGoal = appSettings?.monthly_goal ? Number(appSettings.monthly_goal) : 300000;
+  
+  // Progress calculations
+  const dailyProgress = dailyGoal > 0 ? Math.min(100, (todayGMV / dailyGoal) * 100) : 0;
+  const monthlyProgress = monthlyGoal > 0 ? Math.min(100, (monthlyGMV / monthlyGoal) * 100) : 0;
 
   // Process chart data - aggregate by day
   const chartData = (() => {
@@ -169,12 +181,29 @@ export function Dashboard() {
               </div>
               <p className="text-blue-200 text-sm mt-1">{currentTime} • Marketplace Ops OS v1.0</p>
             </div>
-            <div className="text-right">
-              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                <p className="text-sm text-blue-100">Meta Diária</p>
-                <p className="text-3xl font-bold">R$ {dailyGoal.toLocaleString('pt-BR')}</p>
-                <Progress value={goalProgress} className="mt-2 h-2" />
-                <p className="text-xs text-blue-100 mt-1">{goalProgress.toFixed(0)}% alcançado</p>
+            <div className="flex gap-4">
+              {/* Meta Diária */}
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 min-w-[160px]">
+                <p className="text-xs text-blue-100">Meta Diária</p>
+                <p className="text-xl font-bold">R$ {dailyGoal.toLocaleString('pt-BR')}</p>
+                <Progress value={dailyProgress} className="mt-2 h-2" />
+                <p className="text-xs text-blue-100 mt-1">
+                  {dailyProgress.toFixed(0)}% • R$ {todayGMV.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
+              </div>
+
+              {/* Meta Mensal */}
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 min-w-[160px]">
+                <p className="text-xs text-blue-100">Meta Mensal</p>
+                <p className="text-xl font-bold">R$ {monthlyGoal.toLocaleString('pt-BR')}</p>
+                {loadingMonthlyGMV ? (
+                  <Skeleton className="mt-2 h-2 w-full bg-white/30" />
+                ) : (
+                  <Progress value={monthlyProgress} className="mt-2 h-2" />
+                )}
+                <p className="text-xs text-blue-100 mt-1">
+                  {monthlyProgress.toFixed(0)}% • R$ {monthlyGMV.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </p>
               </div>
             </div>
           </div>
