@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef } from 'react';
-import { useOps } from '@/contexts/OpsContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +30,9 @@ import {
   type ParsedDailySummaryRow,
   type ParsedSKUSaleRow
 } from '@/lib/xlsx-import';
-import { analyzeDailyData, createAutoIncidents, generateAnalysisSummary } from '@/lib/daily-analysis';
-import type { StagedDailySales, StagedDailySummary, SalesBySKU, KPIDaily } from '@/types/marketplace-ops';
+import { useActiveMarketplaces } from '@/hooks/useMarketplacesData';
+import { useConsolidateSales } from '@/hooks/useSalesImport';
+import { useAppSettings } from '@/hooks/useSupabaseData';
 
 // ============================================
 // Tipos locais para staging
@@ -55,12 +55,17 @@ interface LocalStaging {
 }
 
 export function ImportarVendas() {
-  const { state, updateState } = useOps();
+  // Supabase data
+  const { data: marketplaces = [], isLoading: loadingMarketplaces } = useActiveMarketplaces();
+  const { data: appSettings } = useAppSettings();
+  const consolidateMutation = useConsolidateSales();
+
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [uploading, setUploading] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisSummary, setAnalysisSummary] = useState('');
   const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [isConsolidated, setIsConsolidated] = useState(false);
   
   // Estado local de staging (antes de consolidar)
   const [staging, setStaging] = useState<LocalStaging>({
@@ -81,13 +86,7 @@ export function ImportarVendas() {
     input?.click();
   };
 
-  // Sessão do dia (já consolidada)
-  const session = useMemo(() => {
-    return state.importSessions.find(s => s.dateISO === selectedDate);
-  }, [state.importSessions, selectedDate]);
-
-  const activeMarketplaces = state.marketplaces.filter(m => m.active);
-  const dailyGoal = state.settings.dailyGoal;
+  const dailyGoal = appSettings?.daily_goal || 10000;
 
   // Marketplaces identificados no resumo
   const marketplacesFromSummary = useMemo(() => {
@@ -96,14 +95,14 @@ export function ImportarVendas() {
       .filter(r => r.marketplaceId)
       .map(r => ({
         id: r.marketplaceId!,
-        name: state.marketplaces.find(m => m.id === r.marketplaceId)?.name || r.lojaName,
+        name: marketplaces.find(m => m.id === r.marketplaceId)?.name || r.lojaName,
         lojaName: r.lojaName,
         valor: r.valor,
         pedidos: r.pedidos,
         hasSKU: staging.salesByMarketplace.has(r.marketplaceId!),
         skuCount: staging.salesByMarketplace.get(r.marketplaceId!)?.rows.length || 0
       }));
-  }, [staging, state.marketplaces]);
+  }, [staging, marketplaces]);
 
   // Lojas não mapeadas
   const unmappedLojas = useMemo(() => {
@@ -145,7 +144,21 @@ export function ImportarVendas() {
     setUploading(true);
     try {
       const data = await parseXLSXFile(file);
-      const { rows, errors } = parseDailySummarySheet(data, state.marketplaces);
+      // Convert Supabase marketplace format to the format expected by parseDailySummarySheet
+      const marketplacesForParsing = marketplaces.map(m => ({
+        id: m.id,
+        name: m.name,
+        slug: m.slug,
+        priority: m.priority as any,
+        stage: m.stage as any,
+        cadence: m.cadence as any,
+        ownerId: m.owner_id || '',
+        isSelling: m.is_selling,
+        active: m.active,
+        notes: m.notes || '',
+        playbookMarkdown: m.playbook_markdown || '',
+      }));
+      const { rows, errors } = parseDailySummarySheet(data, marketplacesForParsing);
 
       if (errors.length > 0) {
         toast.error(errors[0].error);
@@ -245,31 +258,38 @@ export function ImportarVendas() {
     toast.info('Staging limpo');
   };
 
-  const handleConsolidate = () => {
+  const handleConsolidate = async () => {
     if (!staging.summary || !canConsolidate) return;
 
-    // Monta KPIs
-    const newKPIs: KPIDaily[] = staging.summary.rows
+    // Monta KPIs no formato do Supabase
+    const newKPIs = staging.summary.rows
       .filter(r => r.marketplaceId)
       .map(r => ({
-        dateISO: selectedDate,
-        marketplaceId: r.marketplaceId!,
+        date_iso: selectedDate,
+        marketplace_id: r.marketplaceId!,
         gmv: r.valor,
         orders: r.pedidos,
         items: r.quantidade,
-        ticketAvg: r.ticketMedio,
-        evidenceLinks: [],
+        ticket_avg: r.ticketMedio,
         note: `Importado de ${staging.summary!.fileName}`
       }));
 
-    // Monta Sales by SKU
-    const newSales: SalesBySKU[] = [];
+    // Monta Sales by SKU no formato do Supabase
+    const newSales: Array<{
+      date_start: string;
+      date_end: string;
+      marketplace_id: string;
+      sku: string;
+      qty: number;
+      revenue: number;
+      orders: number;
+    }> = [];
     staging.salesByMarketplace.forEach((data, marketplaceId) => {
       data.rows.forEach(row => {
         newSales.push({
-          dateStart: selectedDate,
-          dateEnd: selectedDate,
-          marketplaceId,
+          date_start: selectedDate,
+          date_end: selectedDate,
+          marketplace_id: marketplaceId,
           sku: row.sku,
           qty: row.quantidade,
           revenue: row.valor,
@@ -278,98 +298,38 @@ export function ImportarVendas() {
       });
     });
 
-    // Atualiza estado global
-    updateState((prev) => {
-      // Remove dados existentes desta data
-      const filteredKPIs = prev.kpis.filter(k => k.dateISO !== selectedDate);
-      const filteredSales = prev.salesBySku.filter(s => s.dateStart !== selectedDate);
-
-      // Atualiza/cria sessão
-      let sessions = [...prev.importSessions];
-      let currentSession = sessions.find(s => s.dateISO === selectedDate);
-
-      if (!currentSession) {
-        currentSession = {
-          dateISO: selectedDate,
-          goalDaily: dailyGoal,
-          importedMarketplaces: newKPIs.map(k => k.marketplaceId),
-          pendingMarketplaces: [],
-          totalGMV: stagingTotalGMV,
-          completed: false,
-          completedAt: null
-        };
-        sessions.push(currentSession);
-      } else {
-        currentSession.importedMarketplaces = newKPIs.map(k => k.marketplaceId);
-        currentSession.totalGMV = stagingTotalGMV;
-      }
-
-      return {
-        ...prev,
-        kpis: [...filteredKPIs, ...newKPIs],
-        salesBySku: [...filteredSales, ...newSales],
-        importSessions: sessions
-      };
-    });
-
-    // Limpa staging
-    setStaging({
-      summary: null,
-      salesByMarketplace: new Map()
-    });
-
-    toast.success(`Consolidado! ${newKPIs.length} marketplaces, ${newSales.length} SKUs`);
-  };
-
-  const handleFinalizeDay = () => {
-    if (!session) {
-      toast.error('Nenhuma importação consolidada');
-      return;
-    }
-
-    const previousKpis = state.kpis.filter(k => k.dateISO < selectedDate);
-
-    const analysis = analyzeDailyData(
-      selectedDate,
-      state.kpis,
-      state.salesBySku,
-      state.marketplaces,
-      previousKpis,
-      dailyGoal
-    );
-
-    const autoIncidents = createAutoIncidents(
-      analysis,
-      state.settings.currentOwnerId,
-      state.marketplaces
-    );
-
-    const summary = generateAnalysisSummary(analysis);
-
-    updateState((prev) => {
-      const sessions = prev.importSessions.map(s => {
-        if (s.dateISO === selectedDate) {
-          return {
-            ...s,
-            completed: true,
-            completedAt: new Date().toISOString()
-          };
-        }
-        return s;
+    try {
+      await consolidateMutation.mutateAsync({
+        kpis: newKPIs,
+        sales: newSales,
+        dateISO: selectedDate
       });
 
-      return {
-        ...prev,
-        dailyAnalyses: [...prev.dailyAnalyses.filter(a => a.dateISO !== selectedDate), analysis],
-        incidents: [...prev.incidents, ...autoIncidents],
-        importSessions: sessions
-      };
-    });
+      // Limpa staging
+      setStaging({
+        summary: null,
+        salesByMarketplace: new Map()
+      });
 
-    setAnalysisSummary(summary);
-    setShowAnalysis(true);
-    toast.success('Análise concluída!');
+      setIsConsolidated(true);
+      toast.success(`Consolidado! ${newKPIs.length} marketplaces, ${newSales.length} SKUs`);
+    } catch (error: any) {
+      toast.error('Erro ao consolidar: ' + error.message);
+    }
   };
+
+  // Por enquanto, desativar a análise automática (precisa ser migrada para Supabase)
+  const handleFinalizeDay = () => {
+    toast.success('Dados consolidados com sucesso! Análise detalhada será implementada em breve.');
+    setShowAnalysis(true);
+    setAnalysisSummary(`## Resumo da Importação - ${selectedDate}\n\n` +
+      `✅ KPIs salvos no banco de dados\n` +
+      `✅ Vendas por SKU registradas\n` +
+      `✅ Dashboard atualizado\n\n` +
+      `Acesse o Dashboard para visualizar os dados consolidados.`
+    );
+  };
+
 
   // ============================================
   // Render
@@ -403,7 +363,7 @@ export function ImportarVendas() {
                   setSelectedDate(e.target.value);
                   handleClearStaging();
                 }}
-                disabled={session?.completed}
+                disabled={isConsolidated}
               />
             </div>
 
@@ -423,40 +383,18 @@ export function ImportarVendas() {
                 {staging.summary ? 'Staging' : 'Consolidado'}
               </Label>
               <div className="text-3xl font-bold text-accent-foreground">
-                R$ {(staging.summary ? stagingTotalGMV : session?.totalGMV || 0).toLocaleString('pt-BR')}
+                R$ {stagingTotalGMV.toLocaleString('pt-BR')}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {((staging.summary ? stagingTotalGMV : session?.totalGMV || 0) / dailyGoal * 100).toFixed(1)}% da meta
+                {(stagingTotalGMV / dailyGoal * 100).toFixed(1)}% da meta
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Dia já finalizado */}
-      {session?.completed && (
-        <Card className="border-0 shadow-lg bg-gradient-to-r from-accent/20 to-accent/10">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle2 className="h-16 w-16 text-accent-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2">Dia Finalizado!</h3>
-            <p className="text-muted-foreground mb-4">
-              Análise concluída em {new Date(session.completedAt!).toLocaleString('pt-BR')}
-            </p>
-            <Button onClick={() => {
-              const analysis = state.dailyAnalyses.find(a => a.dateISO === selectedDate);
-              if (analysis) {
-                setAnalysisSummary(generateAnalysisSummary(analysis));
-                setShowAnalysis(true);
-              }
-            }}>
-              Ver Análise
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Fluxo de importação */}
-      {!session?.completed && (
+      {!isConsolidated && (
         <>
           {/* PASSO 1: Upload Resumo */}
           <Card className="border-0 shadow-lg">
@@ -655,38 +593,19 @@ export function ImportarVendas() {
           )}
 
           {/* Finalizar (após consolidar) */}
-          {session && !session.completed && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button size="lg" className="w-full">
-                  <Sparkles className="h-5 w-5 mr-2" />
-                  Finalizar e Analisar Dia
+          {isConsolidated && (
+            <Card className="border-0 shadow-lg bg-gradient-to-r from-accent/20 to-accent/10">
+              <CardContent className="pt-6 text-center">
+                <CheckCircle2 className="h-16 w-16 text-accent-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-bold mb-2">Dados Consolidados!</h3>
+                <p className="text-muted-foreground mb-4">
+                  KPIs e vendas por SKU salvos no banco de dados.
+                </p>
+                <Button onClick={() => window.location.href = '/dashboard'}>
+                  Ver Dashboard
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Finalizar importação do dia?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    O sistema vai fazer análise inteligente dos dados:
-                    <ul className="list-disc list-inside mt-2 space-y-1">
-                      <li>Verificar meta (R$ {dailyGoal.toLocaleString('pt-BR')})</li>
-                      <li>Ranking de marketplaces</li>
-                      <li>Top produtos (Pareto)</li>
-                      <li>Detectar incidentes automáticos</li>
-                    </ul>
-                    <p className="mt-3 text-destructive font-semibold">
-                      ⚠️ Após finalizar, não pode reimportar este dia.
-                    </p>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleFinalizeDay}>
-                    Sim, Finalizar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              </CardContent>
+            </Card>
           )}
         </>
       )}
@@ -696,7 +615,7 @@ export function ImportarVendas() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Preview SKUs: {state.marketplaces.find(m => m.id === showPreview)?.name}
+              Preview SKUs: {marketplaces.find(m => m.id === showPreview)?.name}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
