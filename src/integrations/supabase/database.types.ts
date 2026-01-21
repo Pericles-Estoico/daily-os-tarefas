@@ -230,6 +230,7 @@ export interface AppSettings {
   app_version: string;
   last_import_date: string | null;
   daily_goal: number;
+  monthly_goal: number;
   updated_at: string;
 }
 
