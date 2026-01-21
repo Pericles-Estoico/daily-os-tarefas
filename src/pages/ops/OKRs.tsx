@@ -1,6 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useOps } from '@/contexts/OpsContext';
-import { Objective, KeyResult } from '@/types/marketplace-ops';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,11 +8,39 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Target, TrendingUp, Pencil, Trash2, CheckCircle2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus, Target, TrendingUp, Pencil, Trash2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+  useObjectives, 
+  useKeyResults, 
+  useCreateObjective, 
+  useUpdateObjective, 
+  useDeleteObjective,
+  useCreateKeyResult,
+  useUpdateKeyResult,
+  useDeleteKeyResult,
+  useMonthlyKPISummary,
+  useActiveMarketplacesP1Count,
+  type Objective,
+  type KeyResult 
+} from '@/hooks/useOKRsData';
+import { useOwners } from '@/hooks/useSupabaseData';
 
 export function OKRs() {
-  const { state, updateState } = useOps();
+  const { data: objectives = [], isLoading: loadingObjectives } = useObjectives();
+  const { data: keyResults = [], isLoading: loadingKRs } = useKeyResults();
+  const { data: owners = [] } = useOwners();
+  const { data: kpiSummary } = useMonthlyKPISummary(2026, 1);
+  const { data: p1Count = 0 } = useActiveMarketplacesP1Count();
+  
+  const createObjective = useCreateObjective();
+  const updateObjective = useUpdateObjective();
+  const deleteObjective = useDeleteObjective();
+  const createKeyResult = useCreateKeyResult();
+  const updateKeyResult = useUpdateKeyResult();
+  const deleteKeyResult = useDeleteKeyResult();
+
   const [isObjectiveDialogOpen, setIsObjectiveDialogOpen] = useState(false);
   const [isKRDialogOpen, setIsKRDialogOpen] = useState(false);
   const [editingObjective, setEditingObjective] = useState<Objective | null>(null);
@@ -36,8 +62,8 @@ export function OKRs() {
 
   // Get objectives with their key results
   const objectivesWithKRs = useMemo(() => {
-    return state.objectives.map(obj => {
-      const krs = state.keyResults.filter(kr => kr.objectiveId === obj.id);
+    return objectives.map(obj => {
+      const krs = keyResults.filter(kr => kr.objective_id === obj.id);
       const totalProgress = krs.length > 0
         ? krs.reduce((sum, kr) => {
             const progress = ((kr.current - kr.baseline) / (kr.target - kr.baseline)) * 100;
@@ -51,12 +77,12 @@ export function OKRs() {
         progress: totalProgress,
       };
     });
-  }, [state.objectives, state.keyResults]);
+  }, [objectives, keyResults]);
 
   const openCreateObjectiveDialog = () => {
     setEditingObjective(null);
     setObjTitle('');
-    setObjOwnerId(state.settings.currentOwnerId);
+    setObjOwnerId(owners[0]?.id || '');
     setObjDueDate('');
     setObjDescription('');
     setIsObjectiveDialogOpen(true);
@@ -65,52 +91,57 @@ export function OKRs() {
   const openEditObjectiveDialog = (obj: Objective) => {
     setEditingObjective(obj);
     setObjTitle(obj.title);
-    setObjOwnerId(obj.ownerId);
-    setObjDueDate(obj.dueDate);
-    setObjDescription(obj.description);
+    setObjOwnerId(obj.owner_id || '');
+    setObjDueDate(obj.due_date || '');
+    setObjDescription(obj.description || '');
     setIsObjectiveDialogOpen(true);
   };
 
-  const handleSaveObjective = () => {
+  const handleSaveObjective = async () => {
     if (!objTitle.trim()) {
       toast.error('Título é obrigatório');
       return;
     }
 
-    const objectiveData: Objective = {
-      id: editingObjective?.id || `obj-${Date.now()}`,
-      title: objTitle.trim(),
-      ownerId: objOwnerId,
-      dueDate: objDueDate,
-      description: objDescription.trim(),
-    };
-
-    updateState((prev) => {
+    try {
       if (editingObjective) {
-        const objectives = prev.objectives.map(o =>
-          o.id === editingObjective.id ? objectiveData : o
-        );
+        await updateObjective.mutateAsync({
+          id: editingObjective.id,
+          updates: {
+            title: objTitle.trim(),
+            owner_id: objOwnerId || null,
+            due_date: objDueDate || null,
+            description: objDescription.trim() || null,
+          },
+        });
         toast.success('Objetivo atualizado!');
-        return { ...prev, objectives };
       } else {
+        await createObjective.mutateAsync({
+          id: `obj-${Date.now()}`,
+          title: objTitle.trim(),
+          owner_id: objOwnerId || null,
+          due_date: objDueDate || null,
+          description: objDescription.trim() || null,
+        });
         toast.success('Objetivo criado!');
-        return { ...prev, objectives: [...prev.objectives, objectiveData] };
       }
-    });
-
-    setIsObjectiveDialogOpen(false);
+      setIsObjectiveDialogOpen(false);
+    } catch (error) {
+      toast.error('Erro ao salvar objetivo');
+      console.error(error);
+    }
   };
 
-  const handleDeleteObjective = (id: string) => {
+  const handleDeleteObjective = async (id: string) => {
     if (!confirm('Excluir objetivo e todos os Key Results associados?')) return;
 
-    updateState((prev) => ({
-      ...prev,
-      objectives: prev.objectives.filter(o => o.id !== id),
-      keyResults: prev.keyResults.filter(kr => kr.objectiveId !== id),
-    }));
-
-    toast.success('Objetivo excluído!');
+    try {
+      await deleteObjective.mutateAsync(id);
+      toast.success('Objetivo excluído!');
+    } catch (error) {
+      toast.error('Erro ao excluir objetivo');
+      console.error(error);
+    }
   };
 
   const openCreateKRDialog = (objectiveId: string) => {
@@ -126,16 +157,16 @@ export function OKRs() {
 
   const openEditKRDialog = (kr: KeyResult) => {
     setEditingKR(kr);
-    setSelectedObjectiveId(kr.objectiveId);
-    setKrMetricName(kr.metricName);
-    setKrUnit(kr.unit);
+    setSelectedObjectiveId(kr.objective_id);
+    setKrMetricName(kr.metric_name);
+    setKrUnit(kr.unit || '');
     setKrBaseline(kr.baseline.toString());
     setKrTarget(kr.target.toString());
     setKrCurrent(kr.current.toString());
     setIsKRDialogOpen(true);
   };
 
-  const handleSaveKR = () => {
+  const handleSaveKR = async () => {
     if (!krMetricName.trim() || !krUnit.trim()) {
       toast.error('Métrica e Unidade são obrigatórios');
       return;
@@ -145,41 +176,82 @@ export function OKRs() {
     const target = parseFloat(krTarget) || 0;
     const current = parseFloat(krCurrent) || baseline;
 
-    const krData: KeyResult = {
-      id: editingKR?.id || `kr-${Date.now()}`,
-      objectiveId: selectedObjectiveId,
-      metricName: krMetricName.trim(),
-      unit: krUnit.trim(),
-      baseline,
-      target,
-      current,
-    };
-
-    updateState((prev) => {
+    try {
       if (editingKR) {
-        const keyResults = prev.keyResults.map(kr =>
-          kr.id === editingKR.id ? krData : kr
-        );
+        await updateKeyResult.mutateAsync({
+          id: editingKR.id,
+          updates: {
+            metric_name: krMetricName.trim(),
+            unit: krUnit.trim(),
+            baseline,
+            target,
+            current,
+          },
+        });
         toast.success('Key Result atualizado!');
-        return { ...prev, keyResults };
       } else {
+        await createKeyResult.mutateAsync({
+          id: `kr-${Date.now()}`,
+          objective_id: selectedObjectiveId,
+          metric_name: krMetricName.trim(),
+          unit: krUnit.trim(),
+          baseline,
+          target,
+          current,
+        });
         toast.success('Key Result criado!');
-        return { ...prev, keyResults: [...prev.keyResults, krData] };
       }
-    });
-
-    setIsKRDialogOpen(false);
+      setIsKRDialogOpen(false);
+    } catch (error) {
+      toast.error('Erro ao salvar Key Result');
+      console.error(error);
+    }
   };
 
-  const handleDeleteKR = (id: string) => {
+  const handleDeleteKR = async (id: string) => {
     if (!confirm('Excluir este Key Result?')) return;
 
-    updateState((prev) => ({
-      ...prev,
-      keyResults: prev.keyResults.filter(kr => kr.id !== id),
-    }));
+    try {
+      await deleteKeyResult.mutateAsync(id);
+      toast.success('Key Result excluído!');
+    } catch (error) {
+      toast.error('Erro ao excluir Key Result');
+      console.error(error);
+    }
+  };
 
-    toast.success('Key Result excluído!');
+  // Update KR with current data from Supabase
+  const handleSyncKR = async (kr: KeyResult) => {
+    if (!kpiSummary) return;
+    
+    let newCurrent = kr.current;
+    
+    // Auto-update based on metric name
+    if (kr.metric_name.toLowerCase().includes('gmv') && kr.metric_name.toLowerCase().includes('mensal')) {
+      newCurrent = kpiSummary.totalGMV;
+    } else if (kr.metric_name.toLowerCase().includes('gmv') && kr.metric_name.toLowerCase().includes('diário')) {
+      newCurrent = kpiSummary.avgGMV;
+    } else if (kr.metric_name.toLowerCase().includes('pedido')) {
+      newCurrent = kpiSummary.totalOrders;
+    } else if (kr.metric_name.toLowerCase().includes('cancelamento')) {
+      newCurrent = kpiSummary.avgCancelRate * 100;
+    } else if (kr.metric_name.toLowerCase().includes('marketplace') && kr.metric_name.toLowerCase().includes('p1')) {
+      newCurrent = p1Count;
+    }
+    
+    if (newCurrent !== kr.current) {
+      try {
+        await updateKeyResult.mutateAsync({
+          id: kr.id,
+          updates: { current: newCurrent },
+        });
+        toast.success(`KR atualizado: ${formatNumber(newCurrent)} ${kr.unit}`);
+      } catch (error) {
+        toast.error('Erro ao sincronizar KR');
+      }
+    } else {
+      toast.info('Valor já está atualizado');
+    }
   };
 
   const getProgressColor = (progress: number) => {
@@ -192,6 +264,23 @@ export function OKRs() {
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('pt-BR').format(num);
   };
+
+  const isLoading = loadingObjectives || loadingKRs;
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1,2,3,4].map(i => <Skeleton key={i} className="h-24" />)}
+        </div>
+        <Skeleton className="h-64" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -242,7 +331,7 @@ export function OKRs() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {state.owners.filter(o => o.active).map(owner => (
+                      {owners.map(owner => (
                         <SelectItem key={owner.id} value={owner.id}>
                           {owner.name}
                         </SelectItem>
@@ -277,7 +366,7 @@ export function OKRs() {
               <Button variant="outline" onClick={() => setIsObjectiveDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={handleSaveObjective}>
+              <Button onClick={handleSaveObjective} disabled={createObjective.isPending || updateObjective.isPending}>
                 {editingObjective ? 'Salvar' : 'Criar'}
               </Button>
             </DialogFooter>
@@ -292,7 +381,7 @@ export function OKRs() {
             <CardTitle className="text-sm font-medium">Objetivos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{state.objectives.length}</div>
+            <div className="text-2xl font-bold">{objectives.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -300,7 +389,7 @@ export function OKRs() {
             <CardTitle className="text-sm font-medium">Key Results</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{state.keyResults.length}</div>
+            <div className="text-2xl font-bold">{keyResults.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -327,6 +416,45 @@ export function OKRs() {
         </Card>
       </div>
 
+      {/* KPI Summary Card */}
+      {kpiSummary && kpiSummary.daysWithData > 0 && (
+        <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Resumo Janeiro 2026 (Auto-calculado)
+            </CardTitle>
+            <CardDescription>
+              Dados do Supabase para atualizar KRs automaticamente
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">GMV Total</p>
+                <p className="text-lg font-bold">R$ {formatNumber(kpiSummary.totalGMV)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">GMV Médio/Dia</p>
+                <p className="text-lg font-bold">R$ {formatNumber(kpiSummary.avgGMV)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Pedidos</p>
+                <p className="text-lg font-bold">{formatNumber(kpiSummary.totalOrders)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Dias com Dados</p>
+                <p className="text-lg font-bold">{kpiSummary.daysWithData}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Marketplaces P1</p>
+                <p className="text-lg font-bold">{p1Count}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Objectives List */}
       <div className="space-y-4">
         {objectivesWithKRs.length === 0 ? (
@@ -334,11 +462,12 @@ export function OKRs() {
             <CardContent className="text-center py-12 text-muted-foreground">
               <Target className="h-12 w-12 mx-auto mb-2 opacity-50" />
               <p>Nenhum objetivo cadastrado</p>
+              <p className="text-sm mt-2">Crie o objetivo "Faturar R$ 10.000 em Janeiro 2026" para começar!</p>
             </CardContent>
           </Card>
         ) : (
           objectivesWithKRs.map((obj) => {
-            const owner = state.owners.find(o => o.id === obj.ownerId);
+            const owner = owners.find(o => o.id === obj.owner_id);
             const isCompleted = obj.progress >= 100;
             
             return (
@@ -354,10 +483,10 @@ export function OKRs() {
                         {obj.description}
                       </CardDescription>
                       <div className="flex gap-2 mt-2">
-                        <Badge variant="outline">{owner?.name}</Badge>
-                        {obj.dueDate && (
+                        <Badge variant="outline">{owner?.name || 'Sem dono'}</Badge>
+                        {obj.due_date && (
                           <Badge variant="outline">
-                            {new Date(obj.dueDate).toLocaleDateString('pt-BR')}
+                            {new Date(obj.due_date).toLocaleDateString('pt-BR')}
                           </Badge>
                         )}
                       </div>
@@ -423,12 +552,20 @@ export function OKRs() {
                             <div key={kr.id} className="border rounded-lg p-3">
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex-1">
-                                  <p className="font-medium">{kr.metricName}</p>
+                                  <p className="font-medium">{kr.metric_name}</p>
                                   <p className="text-sm text-muted-foreground">
                                     {formatNumber(kr.baseline)} → {formatNumber(kr.target)} {kr.unit}
                                   </p>
                                 </div>
                                 <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleSyncKR(kr)}
+                                    title="Sincronizar com dados atuais"
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -479,12 +616,12 @@ export function OKRs() {
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="krMetric">Métrica *</Label>
+              <Label htmlFor="krMetricName">Métrica *</Label>
               <Input
-                id="krMetric"
+                id="krMetricName"
                 value={krMetricName}
                 onChange={(e) => setKrMetricName(e.target.value)}
-                placeholder="Ex: Faturamento mensal"
+                placeholder="Ex: GMV Total Mensal"
               />
             </div>
 
@@ -510,13 +647,13 @@ export function OKRs() {
                 />
               </div>
               <div>
-                <Label htmlFor="krTarget">Meta</Label>
+                <Label htmlFor="krTarget">Target</Label>
                 <Input
                   id="krTarget"
                   type="number"
                   value={krTarget}
                   onChange={(e) => setKrTarget(e.target.value)}
-                  placeholder="100"
+                  placeholder="10000"
                 />
               </div>
               <div>
@@ -536,7 +673,7 @@ export function OKRs() {
             <Button variant="outline" onClick={() => setIsKRDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveKR}>
+            <Button onClick={handleSaveKR} disabled={createKeyResult.isPending || updateKeyResult.isPending}>
               {editingKR ? 'Salvar' : 'Criar'}
             </Button>
           </DialogFooter>
