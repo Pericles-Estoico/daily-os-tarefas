@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useOps } from '@/contexts/OpsContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,6 +67,19 @@ export function ImportarVendas() {
     summary: null,
     salesByMarketplace: new Map()
   });
+
+  // Refs para inputs de arquivo
+  const summaryInputRef = useRef<HTMLInputElement>(null);
+
+  // Handlers para abrir seletores de arquivo
+  const handleClickUploadSummary = () => {
+    summaryInputRef.current?.click();
+  };
+
+  const handleClickUploadSKU = (marketplaceId: string) => {
+    const input = document.getElementById(`sku-input-${marketplaceId}`) as HTMLInputElement;
+    input?.click();
+  };
 
   // Sessão do dia (já consolidada)
   const session = useMemo(() => {
@@ -463,18 +476,17 @@ export function ImportarVendas() {
                   <p className="text-muted-foreground mb-4">
                     Arraste ou selecione o arquivo de resumo diário
                   </p>
-                  <label>
-                    <Button disabled={uploading}>
-                      <Upload className="h-4 w-4 mr-2" />
-                      {uploading ? 'Processando...' : 'Selecionar Arquivo'}
-                    </Button>
-                    <input
-                      type="file"
-                      accept=".csv,.xlsx,.xls"
-                      onChange={handleUploadSummary}
-                      className="hidden"
-                    />
-                  </label>
+                  <Button onClick={handleClickUploadSummary} disabled={uploading}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploading ? 'Processando...' : 'Selecionar Arquivo'}
+                  </Button>
+                  <input
+                    ref={summaryInputRef}
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={handleUploadSummary}
+                    className="hidden"
+                  />
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -577,22 +589,22 @@ export function ImportarVendas() {
                             </Button>
                           </>
                         )}
-                        <label>
-                          <Button
-                            variant={mp.hasSKU ? "outline" : "default"}
-                            size="sm"
-                            disabled={uploading}
-                          >
-                            <Upload className="h-4 w-4 mr-1" />
-                            {mp.hasSKU ? 'Trocar' : 'Upload'}
-                          </Button>
-                          <input
-                            type="file"
-                            accept=".csv,.xlsx,.xls"
-                            onChange={(e) => handleUploadSKU(mp.id, e)}
-                            className="hidden"
-                          />
-                        </label>
+                        <Button
+                          variant={mp.hasSKU ? "outline" : "default"}
+                          size="sm"
+                          disabled={uploading}
+                          onClick={() => handleClickUploadSKU(mp.id)}
+                        >
+                          <Upload className="h-4 w-4 mr-1" />
+                          {mp.hasSKU ? 'Trocar' : 'Upload'}
+                        </Button>
+                        <input
+                          id={`sku-input-${mp.id}`}
+                          type="file"
+                          accept=".csv,.xlsx,.xls"
+                          onChange={(e) => handleUploadSKU(mp.id, e)}
+                          className="hidden"
+                        />
                       </div>
                     </div>
                   ))}
