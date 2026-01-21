@@ -16,7 +16,7 @@ export function generateTasksForMonth(
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   templates
-    .filter((template) => template.enabled)
+    .filter((template) => template.active)
     .forEach((template) => {
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(year, month, day);
@@ -38,17 +38,20 @@ export function generateTasksForMonth(
             title: template.title,
             timeHHMM: template.timeHHMM,
             type: template.type,
-            severity: template.severity,
+            isCritical: template.isCritical,
             DoD: template.DoD,
-            descriptionMarkdown: template.descriptionMarkdown,
+            description: template.description,
+            requireEvidence: template.requireEvidence,
             stepsState: template.steps.map((step) => ({
               label: step.label,
               checked: false,
             })),
             status: 'TODO',
-            evidenceLink: null,
+            evidenceUrl: null,
             notes: '',
             completedAt: null,
+            skippedReason: null,
+            pointsAwarded: 0,
           };
 
           tasks.push(task);
@@ -98,7 +101,7 @@ export function upsertTasks(
       taskMap.set(newTask.id, {
         ...newTask,
         status: existing.status,
-        evidenceLink: existing.evidenceLink,
+        evidenceUrl: existing.evidenceUrl,
         notes: existing.notes,
         completedAt: existing.completedAt,
         stepsState: existing.stepsState,
