@@ -166,6 +166,130 @@ Escalar vendas de R$500/dia para R$10.000/dia com operação disciplinada e prev
 `;
 
 // ============================================
+// SHEIN Seller Hub - Playbook 30 Dias (+30% GMV)
+// ============================================
+const SHEIN_PLAYBOOK = `# Playbook: SHEIN Seller Hub (+30% GMV em 30 dias)
+
+## 🎯 Meta Operacional
+**Resultado-alvo:** +30% no GMV em 30 dias com ciclos de otimização e escala.
+
+**Premissas**
+- Loja ativa, gerente de conta e histórico de performance.
+- Catálogo limpo com dados de vendas e conversão.
+- Tática agressiva orientada por dados.
+
+---
+
+## 📌 Fontes oficiais analisadas
+- Seller Hub SHEIN (ferramentas, promoções e suporte).
+- Central de ajuda / FAQs.
+
+---
+
+## 📈 Estrutura de ação (Ciclo 30 dias)
+
+### 1) Poção Básica: Otimização de Listings (Dia 1–5)
+**Objetivo:** Explosão de conversão orgânica e rank interno.
+
+**Checklist operacional**
+- **Títulos + Keywords:** palavras do SEARCH interno, variações de nome, termo principal no início.
+- **Imagens conversivas:** multiview + lifestyle + close + tabela de tamanhos (3–5 imagens, alta resolução).
+- **Atributos completos:** cor, tecido, guia de medidas, gênero, idade.
+
+**Métricas de resposta**
+- Conversão por SKU.
+- CTR na busca.
+
+---
+
+### 2) Funil de Promoção Escalonada (Dia 5–15)
+**Objetivo:** Tráfego + prova social + urgência.
+
+**Ferramentas SHEIN**
+- Campanhas event-driven (flash deals, sazonal).
+- Listagens patrocinadas / slots em destaque.
+- Cupons e descontos gerados pela SHEIN.
+
+**Funil promocional em 3 níveis**
+1. **Awareness (D5–D9):** Hero SKUs patrocinados + cupom 24h de frete grátis + % off.  
+   **Meta:** CTR ≥ 8%, impressões top 10% categoria.
+2. **Engagement (D10–D13):** flash 48h + bundles (ex.: body + conjunto).  
+   **Meta:** conversão +10% vs baseline.
+3. **Closure (D14–D15):** pop-up de urgência + push (quando disponível).  
+   **Meta:** add-to-cart → checkout ≥ 20%.
+
+---
+
+### 3) Dados + Otimização (Dia 5–25)
+**Objetivo:** Fechar ciclo de experimentação e escalar SKUs vencedores.
+
+**KPIs no Seller Hub**
+- GMV por SKU
+- Taxa de retorno
+- Conversão
+- Visitas vs add-to-cart
+- Ranking interno
+
+**Ritual de decisão**
+- Dias 5, 10, 15 e 20: ciclo relâmpago de 48h para ajuste de bids, orçamento e troca de SKUs.
+- Realocar orçamento para top 20% produtos → +50% eficiência esperada.
+
+---
+
+### 4) Selo e Confiança (Dia 1–30)
+**Objetivo:** Maximizar ranking e confiança.
+
+- Ativar selo “vendedor indicado” (baixa taxa de cancelamento, envio rápido, alta avaliação).
+- Maximizar avaliações 5★ com foto.
+**Meta:** nota média ≥ 4.8.
+
+---
+
+### 5) Amplificação Off-Platform (Dia 7–30)
+**Objetivo:** Alimentar tráfego externo para a SHEIN.
+
+- Cross-link no app → catálogo SHEIN com cupom.
+- Push segmentado por comportamento (remarketing).
+- Promoções sincronizadas (cupom 48h + destaque SHEIN).
+
+---
+
+## 🔁 Loop de decisão (28–30 dias)
+
+| Métrica | Meta 30 dias | Status |
+| --- | --- | --- |
+| GMV total | +30% vs mês anterior | 🧠 foco principal |
+| Conversão média SKUs | ≥ +15% | base para escalar |
+| CTR em campanhas | ≥ 8% | confirma relevância |
+| Avaliação média | ≥ 4.8★ | confiança da loja |
+| Taxa de devolução | ≤ 5% | sinal de qualidade |
+
+**Filtro de priorização**
+- SKU com baixa conversão em promoção → retirar budget → realocar para top performers.
+
+---
+
+## 📦 Playbook pronto para app (JSON/ETL friendly)
+\`\`\`json
+{
+  "optimization_cycle": [
+    { "day": 1, "task": "Refresh keywords / update titles + images" },
+    { "day": 3, "task": "Enable sponsored listings for hero SKUs" },
+    { "day": 5, "task": "Activate coupons & flash deals" },
+    { "day": 7, "task": "Analytics review & budget optimize" },
+    { "day": 10, "task": "Expand push & off-platform remarketing" }
+  ],
+  "metrics": ["GMV", "ConversionRate", "CTR", "Rating", "ReturnRate"],
+  "target": { "GMV_growth": "30%", "Conversion_increase": "15%" },
+  "actions_on_metrics": [
+    { "if": "ConversionRate < threshold", "then": "swap SKU campaign allocation" },
+    { "if": "CTR < threshold", "then": "adjust keywords / images" }
+  ]
+}
+\`\`\`
+`;
+
+// ============================================
 // Marketplace Demo
 // ============================================
 export const DEMO_MARKETPLACE: Marketplace = {
@@ -180,6 +304,20 @@ export const DEMO_MARKETPLACE: Marketplace = {
   active: true,
   notes: 'Marketplace principal - foco em escalar de R$500 para R$10.000/dia',
   playbookMarkdown: MERCADO_LIVRE_PLAYBOOK,
+};
+
+export const SHEIN_MARKETPLACE: Marketplace = {
+  id: 'shein',
+  name: 'SHEIN Seller Hub',
+  slug: 'shein_seller_hub',
+  priority: 'P1',
+  stage: 'SCALE',
+  cadence: 'DAILY',
+  ownerId: 'walistter',
+  isSelling: true,
+  active: true,
+  notes: 'Playbook operacional 30 dias para +30% GMV com foco em performance.',
+  playbookMarkdown: SHEIN_PLAYBOOK,
 };
 
 // ============================================
@@ -322,12 +460,153 @@ export const DEMO_TEMPLATES: TaskTemplate[] = [
 ];
 
 // ============================================
+// Templates Demo - SHEIN
+// ============================================
+export const SHEIN_TEMPLATES: TaskTemplate[] = [
+  {
+    id: 'tpl-shein-listing-otimizacao',
+    title: '[SHEIN] Higiene: Otimizar listings (títulos, imagens e atributos)',
+    marketplaceId: 'shein',
+    ownerId: 'walistter',
+    timeHHMM: '09:30',
+    type: 'HIGIENE',
+    severity: 'NORMAL',
+    daysOfWeek: [1, 3, 5],
+    DoD: 'Top SKUs com títulos e keywords atualizados, 3-5 imagens HD e atributos completos',
+    isCritical: false,
+    requireEvidence: true,
+    active: true,
+    description: '**Objetivo:** Melhorar conversão orgânica e ranking interno.\n\n**Passos:**\n1. Abrir Search interno e identificar keywords mais usadas\n2. Atualizar título com termo principal no início\n3. Subir 3-5 imagens (multiview, lifestyle, close, tabela de tamanhos)\n4. Completar atributos (cor, tecido, gênero, idade)\n5. Registrar antes/depois',
+    steps: [
+      { label: 'Atualizar título com keyword principal', required: true },
+      { label: 'Subir imagens HD (3-5)', required: true },
+      { label: 'Completar atributos obrigatórios', required: true },
+      { label: 'Registrar evidência', required: true },
+    ],
+    expectedMinutes: 60,
+    toolsLinks: [],
+    whenToOpenIncident: 'Queda de CTR >20% ou SKU campeão sem imagem válida',
+    escalationRule: '',
+    points: 40,
+    penaltyPoints: 0,
+  },
+  {
+    id: 'tpl-shein-patrocinados',
+    title: '[SHEIN] Crescimento: Ativar listagens patrocinadas (Hero SKUs)',
+    marketplaceId: 'shein',
+    ownerId: 'walistter',
+    timeHHMM: '10:30',
+    type: 'CRESCIMENTO',
+    severity: 'NORMAL',
+    daysOfWeek: [2, 4],
+    DoD: 'Campanhas ativas com Hero SKUs e meta de CTR ≥ 8%',
+    isCritical: false,
+    requireEvidence: true,
+    active: true,
+    description: '**Objetivo:** Aumentar tráfego e visibilidade.\n\n**Passos:**\n1. Selecionar 5-10 Hero SKUs por GMV\n2. Ativar listagens patrocinadas\n3. Definir orçamento inicial e prazo curto\n4. Monitorar CTR e ajustar bids',
+    steps: [
+      { label: 'Selecionar Hero SKUs', required: true },
+      { label: 'Ativar patrocinados', required: true },
+      { label: 'Configurar orçamento inicial', required: true },
+      { label: 'Monitorar CTR (meta ≥ 8%)', required: true },
+    ],
+    expectedMinutes: 45,
+    toolsLinks: [],
+    whenToOpenIncident: 'CTR < 5% por 48h em Hero SKUs',
+    escalationRule: '',
+    points: 35,
+    penaltyPoints: 0,
+  },
+  {
+    id: 'tpl-shein-campanhas',
+    title: '[SHEIN] Crescimento: Cupons + flash deals (48h)',
+    marketplaceId: 'shein',
+    ownerId: 'walistter',
+    timeHHMM: '11:30',
+    type: 'CRESCIMENTO',
+    severity: 'NORMAL',
+    daysOfWeek: [2, 5],
+    DoD: 'Cupons e flash deals ativos com validade curta e bundles configurados',
+    isCritical: false,
+    requireEvidence: true,
+    active: true,
+    description: '**Objetivo:** Criar urgência e elevar conversão.\n\n**Passos:**\n1. Criar cupom de frete grátis + % off (24-48h)\n2. Ativar flash deal para SKUs selecionados\n3. Montar bundles (produto principal + complementar)\n4. Validar performance vs baseline',
+    steps: [
+      { label: 'Criar cupom com validade curta', required: true },
+      { label: 'Ativar flash deal', required: true },
+      { label: 'Configurar bundles', required: true },
+      { label: 'Registrar conversão vs baseline', required: true },
+    ],
+    expectedMinutes: 50,
+    toolsLinks: [],
+    whenToOpenIncident: 'Conversão cair >10% em relação ao baseline',
+    escalationRule: '',
+    points: 40,
+    penaltyPoints: 0,
+  },
+  {
+    id: 'tpl-shein-analytics',
+    title: '[SHEIN] Estratégia: Revisão de dados (GMV, CTR, conversão)',
+    marketplaceId: 'shein',
+    ownerId: 'walistter',
+    timeHHMM: '15:00',
+    type: 'ESTRATEGIA',
+    severity: 'NORMAL',
+    daysOfWeek: [1, 4],
+    DoD: 'Dashboard revisado e plano de realocação de budget definido',
+    isCritical: false,
+    requireEvidence: false,
+    active: true,
+    description: '**Objetivo:** Realocar orçamento para top 20% SKUs.\n\n**Passos:**\n1. Revisar GMV por SKU\n2. Identificar CTR e conversão por campanha\n3. Pausar SKUs com baixa performance\n4. Realocar budget para top performers',
+    steps: [
+      { label: 'Revisar GMV por SKU', required: true },
+      { label: 'Analisar CTR e conversão', required: true },
+      { label: 'Pausar baixo desempenho', required: true },
+      { label: 'Realocar orçamento', required: true },
+    ],
+    expectedMinutes: 45,
+    toolsLinks: [],
+    whenToOpenIncident: 'GMV total >20% abaixo da meta em 7 dias',
+    escalationRule: '',
+    points: 30,
+    penaltyPoints: 0,
+  },
+  {
+    id: 'tpl-shein-confianca',
+    title: '[SHEIN] Proteção: Selo e confiança (avaliações 5★)',
+    marketplaceId: 'shein',
+    ownerId: 'walistter',
+    timeHHMM: '16:00',
+    type: 'PROTECAO',
+    severity: 'NORMAL',
+    daysOfWeek: [3],
+    DoD: 'Avaliação média ≥ 4.8 e plano de melhoria de reviews executado',
+    isCritical: false,
+    requireEvidence: false,
+    active: true,
+    description: '**Objetivo:** Melhorar reputação e ranking.\n\n**Passos:**\n1. Verificar avaliação média da loja\n2. Solicitar reviews com foto para SKUs chave\n3. Mapear reclamações e corrigir causas\n4. Registrar ações de melhoria',
+    steps: [
+      { label: 'Verificar avaliação média', required: true },
+      { label: 'Solicitar reviews com foto', required: true },
+      { label: 'Corrigir principais causas de reclamação', required: true },
+      { label: 'Registrar ações executadas', required: true },
+    ],
+    expectedMinutes: 30,
+    toolsLinks: [],
+    whenToOpenIncident: 'Avaliação média <4.7 ou devolução >5%',
+    escalationRule: '',
+    points: 25,
+    penaltyPoints: 0,
+  },
+];
+
+// ============================================
 // Task Instances para HOJE (Demo)
 // ============================================
 export function generateDemoTasksForToday(): TaskInstance[] {
   const today = new Date().toISOString().split('T')[0];
   
-  return DEMO_TEMPLATES.map((template) => ({
+  return [...DEMO_TEMPLATES, ...SHEIN_TEMPLATES].map((template) => ({
     id: `task-${template.id}-${today}`,
     templateId: template.id,
     dateISO: today,
@@ -356,8 +635,8 @@ export function generateDemoTasksForToday(): TaskInstance[] {
 export function applySeedData(currentState: AppState): AppState {
   return {
     ...currentState,
-    marketplaces: [DEMO_MARKETPLACE],
-    templates: DEMO_TEMPLATES,
+    marketplaces: [DEMO_MARKETPLACE, SHEIN_MARKETPLACE],
+    templates: [...DEMO_TEMPLATES, ...SHEIN_TEMPLATES],
     tasks: generateDemoTasksForToday(),
   };
 }
